@@ -2,9 +2,10 @@
 import numpy as np
 import sys
 
-MIN_THRESHOLD = 2
+MIN_THRESHOLD = 3
 EXPECTED_FRAGMENT = 29000
 QUAL = 40
+MAX_HUB = 10
 
 class Barcode:
     def __init__(self, code):
@@ -119,7 +120,7 @@ class Scaffold:
         return [kinc, rinc]
     
     def GetLRStatus(self, othnm):
-        if self.length < EXPECTED_FRAGMENT:
+        if self.length > EXPECTED_FRAGMENT:
             cn = self.Connects[othnm]
             cnm = np.mean(cn.positions)
             
@@ -131,7 +132,7 @@ class Scaffold:
             else:
                 if cnm < EXPECTED_FRAGMENT:
                     return 'L'
-                elif cnm > (self.length - EXPECTED_FRAGMENT):
+                else:
                     return 'R'
         else: 
             return 'B'
@@ -208,21 +209,22 @@ class Genome:
             for line in sfile:
                 line = line.rstrip('\r\n')
                 
-                vls = line.split('\t')
-                nms = vls[0].split('_')
-                
-                sc = vls[2]
-                pos = int(vls[3])
-                coda = nms[-1]
-                ql = int(vls[4])
-                linc += 1
-                
-                if sc in self.Scaffolds and ql >= QUAL:
-                    rinc += 1
-                    if coda not in self.Barcodes:
-                        self.Barcodes[coda] = Barcode(coda)
+                if line[0] != '@':
+                    vls = line.split('\t')
+                    nms = vls[0].split('_')
                     
-                    self.Barcodes[coda].AddConnect(pos, self.Scaffolds[sc])
+                    sc = vls[2]
+                    pos = int(vls[3])
+                    coda = nms[-1]
+                    ql = int(vls[4])
+                    linc += 1
+                    
+                    if sc in self.Scaffolds and ql >= QUAL:
+                        rinc += 1
+                        if coda not in self.Barcodes:
+                            self.Barcodes[coda] = Barcode(coda)
+                        
+                        self.Barcodes[coda].AddConnect(pos, self.Scaffolds[sc])
                     
         bl = len(self.Barcodes)
         
@@ -319,11 +321,10 @@ class Genome:
         ctab.close()
         nnet.close()
         nnode.close()
-            
                         
 
 def HelpMsg():
-    print ("UnARKS - ARKS except unambiguous!\n\n")
+    print ("NanoChrome - Long Seq Consensus scaffolds\n\n")
     print ("ARG1: <genome.fa> A Genome file\n")
     print ("ARG2: <alns.sam> Mapped 10X library\n")
     print ("ARG3: <prefix> Unique prefix for outputs\n\n")
@@ -337,18 +338,23 @@ def main(argv):
 
     # make sure there are at least three arguments
     if len(argv) >= 3:
-        print("Reading Genome...\n")
-        the_genome = Genome()
-        the_genome.ReadFasta(argv[0])
-        print("Reading Alignments...\n")
-        the_genome.ReadSam(argv[1])
-        print("Filtering Reads & Edges...\n")
-        the_genome.DistributeBarcodes()
-        the_genome.StripScaffolds()
-        print("Generating Barcode Graph..\n")
-        the_genome.MirrorDown(argv[2])
-        print("Writing Outputs...\n")
-        the_genome.PrintFasta(argv[0], argv[2])
+        try:
+            print("Reading Genome...\n")
+            the_genome = Genome()
+            the_genome.ReadFasta(argv[0])
+            print("Reading Alignments...\n")
+            the_genome.ReadSam(argv[1])
+            print("Filtering Reads & Edges...\n")
+            the_genome.DistributeBarcodes()
+            the_genome.StripScaffolds()
+            print("Generating Barcode Graph..\n")
+            the_genome.MirrorDown(argv[2])
+            print("Writing Candidates...\n")
+            the_genome.PrintFasta(argv[0], argv[2])
+        except:
+            print("Error: ",sys.exc_info()[0]," <- this happened.")
+        finally:
+           HelpMsg() 
         
     else:
         HelpMsg()
