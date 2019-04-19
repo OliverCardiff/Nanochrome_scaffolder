@@ -5,7 +5,6 @@ import sys
 MIN_THRESHOLD = 3
 EXPECTED_FRAGMENT = 29000
 QUAL = 40
-MAX_HUB = 10
 
 class Barcode:
     def __init__(self, code):
@@ -120,22 +119,23 @@ class Scaffold:
         return [kinc, rinc]
     
     def GetLRStatus(self, othnm):
+        cn = self.Connects[othnm]
+        cnm = np.mean(cn.positions)
+        ch = 'B'
+        
         if self.length > EXPECTED_FRAGMENT:
-            cn = self.Connects[othnm]
-            cnm = np.mean(cn.positions)
-            
             if self.length < (EXPECTED_FRAGMENT * 2):
                 if cnm > (self.length/2):
-                    return 'R'
+                    ch = 'R'
                 else:
-                    return 'L'
+                    ch = 'L'
             else:
                 if cnm < EXPECTED_FRAGMENT:
-                    return 'L'
+                    ch = 'L'
                 else:
-                    return 'R'
-        else: 
-            return 'B'
+                    ch = 'R'
+        
+        return [ch, cnm]
     
     def CanSplit(self):
         if self.length < EXPECTED_FRAGMENT:
@@ -207,24 +207,26 @@ class Genome:
         rinc = linc = 0
         with open(fname, "r") as sfile:
             for line in sfile:
-                line = line.rstrip('\r\n')
                 
                 if line[0] != '@':
-                    vls = line.split('\t')
-                    nms = vls[0].split('_')
+                    line = line.rstrip('\r\n')
                     
-                    sc = vls[2]
-                    pos = int(vls[3])
-                    coda = nms[-1]
+                    vls = line.split('\t')
                     ql = int(vls[4])
                     linc += 1
                     
-                    if sc in self.Scaffolds and ql >= QUAL:
-                        rinc += 1
-                        if coda not in self.Barcodes:
-                            self.Barcodes[coda] = Barcode(coda)
+                    if ql >= QUAL:
+                        nms = vls[0].split('_')
+                        sc = vls[2]
+                        pos = int(vls[3])
+                        coda = nms[-1]
                         
-                        self.Barcodes[coda].AddConnect(pos, self.Scaffolds[sc])
+                        if sc in self.Scaffolds:
+                            rinc += 1
+                            if coda not in self.Barcodes:
+                                self.Barcodes[coda] = Barcode(coda)
+                            
+                            self.Barcodes[coda].AddConnect(pos, self.Scaffolds[sc])
                     
         bl = len(self.Barcodes)
         
@@ -274,7 +276,7 @@ class Genome:
         
         ks = list(self.Scaffolds.keys())
         
-        ctab.write("CNTG1\tTYPE1\tCNTG2\tTYPE2\tWEIGHT\n")
+        ctab.write("CNTG1\tTYPE1\tMEAN1\tCNTG2\tTYPE2\tMEAN2\tWEIGHT\n")
         nnode.write("NODE\tSIZE\n")
         nnet.write("SOURCE\tWEIGHT\tTARGET\tTYPE\n")
         
@@ -286,8 +288,8 @@ class Genome:
                         self.Candidates[ks[i]] = 1
                         
                         wt = self.Scaffolds[ks[i]].Connects[ks[j]].weight
-                        ch1 = self.Scaffolds[ks[i]].GetLRStatus(ks[j])
-                        ch2 = self.Scaffolds[ks[j]].GetLRStatus(ks[i])
+                        ch1, mn1 = self.Scaffolds[ks[i]].GetLRStatus(ks[j])
+                        ch2, mn2 = self.Scaffolds[ks[j]].GetLRStatus(ks[i])
                         
                         n1 = self.AssignCheck(ch1, ks[i])
                         n2 = self.AssignCheck(ch2, ks[j])
@@ -295,9 +297,9 @@ class Genome:
                         nnet.write(n1 + "\t" + str(wt) + "\t" +
                                    n2 + "\t1\n")
 
-                        ctab.write(ks[i] + "\t" + ch1 + "\t" +
-                                   ks[j] + "\t" + ch2 + "\t" +
-                                   str(wt) + "\n")
+                        ctab.write(ks[i] + "\t" + ch1 + "\t" + str(mn1) +
+                                   "\t" + ks[j] + "\t" + ch2 + "\t" + 
+                                   str(mn2) + "\t" + str(wt) + "\n")
                         
                 
         bl = len(self.Candidates)
@@ -327,7 +329,8 @@ def HelpMsg():
     print ("NanoChrome - Long Seq Consensus scaffolds\n\n")
     print ("ARG1: <genome.fa> A Genome file\n")
     print ("ARG2: <alns.sam> Mapped 10X library\n")
-    print ("ARG3: <prefix> Unique prefix for outputs\n\n")
+    print ("ARG3: <integer> Fragment Length (x10 library)")
+    print ("ARG4: <prefix> Unique prefix for outputs\n\n")
     print ("Output:\n")
     print ("<prefix>_candidates.fa: A set of scaffold candidates\n")
     print ("<prefix>_table.tsv: Potential connection table\n")
@@ -339,6 +342,8 @@ def main(argv):
     # make sure there are at least three arguments
     if len(argv) >= 3:
         try:
+            global EXPECTED_FRAGMENT
+            EXPECTED_FRAGMENT = int(argv[2])
             print("Reading Genome...\n")
             the_genome = Genome()
             the_genome.ReadFasta(argv[0])
@@ -348,9 +353,9 @@ def main(argv):
             the_genome.DistributeBarcodes()
             the_genome.StripScaffolds()
             print("Generating Barcode Graph..\n")
-            the_genome.MirrorDown(argv[2])
+            the_genome.MirrorDown(argv[3])
             print("Writing Candidates...\n")
-            the_genome.PrintFasta(argv[0], argv[2])
+            the_genome.PrintFasta(argv[0], argv[3])
         except:
             print("Error: ",sys.exc_info()[0]," <- this happened.")
         finally:

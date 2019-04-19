@@ -3,12 +3,14 @@
 import sys
 import pandas as pd
 
-QUANTILE_THRESH = 0.97
+QUANTILE_THRESH = 0.999
+EDGE_RATIO = 5
 CONF_WEIGHT = 20
 DEGREE_FILTER = 5
 QUAL = 25
 AUTO_GAP = 2000
 TRIM_LIMIT = 500
+FRAG_LEN = 50000
 
 class JoinData:
     def __init__(self, wt, auto, nano):
@@ -17,7 +19,7 @@ class JoinData:
         self.nano = nano
 
 class Join:
-    def __init__(self, other, weight):
+    def __init__(self, other, weight, meanpos):
         self.other = other
         self.weight = weight
         self.nano_confs = 0
@@ -26,14 +28,15 @@ class Join:
         self.gap = AUTO_GAP
         self.trim_amnt = 0
         self.best = False
+        self.mean10x = meanpos
         
     def Reflect(self, scnm):       
-        res = self.other.HasFixedMatch(scnm)
+        res, ref = self.other.HasFixedMatch(scnm)
         
         if res == 'L':
-            return [res, self.other.Left[scnm]]
+            return [res, ref]
         elif res == 'R':
-            return [res, self.other.Right[scnm]]
+            return [res, ref]
         else:
             return [res, None]
     
@@ -205,25 +208,29 @@ class Scaffold:
     
     def HasFixedMatch(self, scfnm):
         if scfnm in self.Left:
-            return 'L'
+            return ['L', self.Left[scfnm]]
         elif scfnm in self.Right:
-            return 'R'
+            return ['R', self.Right[scfnm]]
         else:
-            return 'N'
+            return ['N', None]
              
     def RunAutoConf(self, fraglen):
-        def CheckEntry(vl, ch1, ch2):
+        def CheckEntry(tail1, vl, ch1, ch2):
             if vl.weight > CONF_WEIGHT:
-                res = vl.other.HasFixedMatch(self.name)
+                res, v2 = vl.other.HasFixedMatch(self.name)
                 if res == 'L':
+                    tail2 = v2.mean_pos
+                    remains = int(fraglen - tail1 - tail2)
                     vl.orientation = ch1
                     vl.auto_confs = 1
-                    vl.gap = int(fraglen/3)
+                    vl.gap = max([TRIM_LIMIT, remains])
                     return 1
                 if res == 'R':
+                    tail2 = vl.other.length - v2.mean_pos
+                    remains = int(fraglen - tail1 - tail2)
                     vl.orientation = ch2
                     vl.auto_confs = 1
-                    vl.gap = int(fraglen/3)
+                    vl.gap = max([TRIM_LIMIT, remains])
                     return 1
             return 0
         
@@ -231,18 +238,20 @@ class Scaffold:
         allc = 0
         for ks,vl in self.Left.items():
             allc += 1
-            cnf += CheckEntry(vl, 'R', 'F')
+            tail1 = vl.mean_pos
+            cnf += CheckEntry(tail1, vl, 'R', 'F')
             
         for ks,vl in self.Right.items():
             allc += 1
-            cnf += CheckEntry(vl, 'F', 'R')
+            tail1 = self.length - vl.mean_pos
+            cnf += CheckEntry(tail1, vl, 'F', 'R')
         
         allc += len(self.Both)
         
         return [allc, cnf]
         
-    def AddJoin(self, other, weight, mode):
-        jn = Join(other, weight)
+    def AddJoin(self, other, weight, mpos, mode):
+        jn = Join(other, weight, mpos)
         
         if mode == 'L':
             self.Left[other.name] = jn
@@ -447,7 +456,7 @@ class Graph:
             return self.Scaffolds[othnm].seq
         
     def RunN50(self, lns):
-        lns = sorted(lns)
+        lns.sort()
         
         sz = sum(lns)/2
         accu = 0
@@ -457,7 +466,8 @@ class Graph:
             if accu + l > sz:
                 a = (sz - accu) / l
                 b = l - oldL
-                n50 = oldL + (b * a)  
+                n50 = oldL + (b * a)
+                break;
             else:
                 accu += l
                 oldL = l
@@ -542,7 +552,7 @@ class Graph:
                 
                 if line[0] == ">":
                     nm = line[1:]
-                    if len(oldID) > 0 and len(seq) > 150:
+                    if len(oldID) > 0 and len(seq) > 15:
                         self.Scaffolds[oldID] = Scaffold(oldID, len(seq))
                         glen += len(seq)
                         snum += 1
@@ -578,11 +588,27 @@ class Graph:
         
         tbl = pd.read_csv(tnam, sep="\t")
         print("Actual join count: " + str(tbl.shape[0]))
-        CONF_WEIGHT = tbl.WEIGHT.quantile(QUANTILE_THRESH)
-        print(str(QUANTILE_THRESH) + " quantile filter; weight threshold: " +
-              str(CONF_WEIGHT))
+        global CONF_WEIGHT
+        global QUANTILE_THRESH
+        
+        sln = len(self.Scaffolds)
+        act_ratio = 0
+        
+        print("Adjusting quantile filter...\n")
+        
+        while QUANTILE_THRESH > 0.8 and act_ratio < EDGE_RATIO: 
+            CONF_WEIGHT = tbl.WEIGHT.quantile(QUANTILE_THRESH)
+            print(str(QUANTILE_THRESH) + " quantile filter; weight threshold: " +
+                  str(CONF_WEIGHT))
+            tbl2 = tbl.loc[tbl.WEIGHT > CONF_WEIGHT]
+            ln2 = tbl2.shape[0]
+            act_ratio = ln2/sln
+            QUANTILE_THRESH -= 0.005
+            
         tbl = tbl.loc[tbl.WEIGHT > CONF_WEIGHT]
-        print("Post filter count to load: " + str(tbl.shape[0]) + "\n")
+        print("\nPost filter count to load: " + str(tbl.shape[0]) + "\n")
+        
+        CONF_WEIGHT = int(CONF_WEIGHT * 1.334)
         
         for i in range(len(tbl)):
             row = tbl.iloc[i]
@@ -590,6 +616,8 @@ class Graph:
             wt = row.WEIGHT
             t1 = row.TYPE1
             t2 = row.TYPE2
+            m1 = row.MEAN1
+            m2 = row.MEAN2
             sc1nm = str(row.CNTG1)
             sc2nm = str(row.CNTG2)
             
@@ -601,8 +629,8 @@ class Graph:
             if sc1nm in self.Scaffolds and sc2nm in self.Scaffolds:
                 sc1 = self.Scaffolds[sc1nm]
                 sc2 = self.Scaffolds[sc2nm]
-                sc1.AddJoin(sc2, wt, t1)
-                sc2.AddJoin(sc1, wt, t2)
+                sc1.AddJoin(sc2, wt, m1, t1)
+                sc2.AddJoin(sc1, wt, m2, t2)
 
         print ("Loaded " + str(jinc) + " partial joins")
         print ("With " + str(linc) + " left arks")
@@ -691,11 +719,9 @@ class Graph:
                         sc2 = self.Scaffolds[ks[j]]
                         if sc1.CanRecieveNano(als[i], rln, sc2):
                             if sc2.CanRecieveNano(als[j], rln, sc1):
-                                #print("Both Recievable!")
                                 res = self.AttemptToReconcile(sc1,sc2,
                                                         als[i],als[j],rln)
                                 if res:
-                                    #print("Reconciled!")
                                     rd.matched += 1
                                     confs += 1
                 
@@ -1099,38 +1125,40 @@ def main(argv):
 
     # make sure there are at least three arguments
     if len(argv) >= 5:
-        #try:
-        the_graph = Graph(int(argv[3]))
-        print("Scanning the genome...\n")
-        the_graph.ScanGenome(argv[0])
-        print("Reading the edge graph...\n")
-        the_graph.ReadTable(argv[1])
-        print("Pre-filtering edge graph...\n")
-        the_graph.PreFilterEdges()
-        the_graph.PreConfirmEdges()
-        print("Loading long-read .paf...\n")
-        the_graph.ReadPAF(argv[2])
-        print("Filtering network...\n")
-        the_graph.StripUnconfirmed()
-        print("Agent navigating graph...\n")
-        the_agent = Agent(the_graph.Scaffolds)
-        the_agent.RunPaths()
-        print("Fixing in optimal scaffold paths\n")
-        the_agent.PrintNetwork(argv[4])
-        print("Writing final assembly\n")
-        the_graph.StoreGenome(argv[0])
-        the_agent.PrintMetas(argv[4], the_graph.Scaffolds)
-        
-        n50, cnt, sz = the_graph.FinalStats(the_agent.Metas)
-        
-        print("The new genome size: " + str(sz))
-        print("..with contig count: " + str(cnt))
-        print("..and an n50 of: %.2f\n" % n50)
+        try:
+            global FRAG_LEN
+            FRAG_LEN = int(argv[3])
+            the_graph = Graph(FRAG_LEN)
+            print("Scanning the genome...\n")
+            the_graph.ScanGenome(argv[0])
+            print("Reading the edge graph...\n")
+            the_graph.ReadTable(argv[1])
+            print("Pre-filtering edge graph...\n")
+            the_graph.PreFilterEdges()
+            the_graph.PreConfirmEdges()
+            print("Loading long-read .paf...\n")
+            the_graph.ReadPAF(argv[2])
+            print("Filtering network...\n")
+            the_graph.StripUnconfirmed()
+            print("Agent navigating graph...\n")
+            the_agent = Agent(the_graph.Scaffolds)
+            the_agent.RunPaths()
+            print("Fixing in optimal scaffold paths\n")
+            the_agent.PrintNetwork(argv[4])
+            print("Writing final assembly\n")
+            the_graph.StoreGenome(argv[0])
+            the_agent.PrintMetas(argv[4], the_graph.Scaffolds)
             
-        #except:
-        #    print("Error: ",sys.exc_info()[0]," <- this happened.")
-        #finally:
-        #   HelpMsg() 
+            n50, cnt, sz = the_graph.FinalStats(the_agent.Metas)
+            
+            print("The new genome size: " + str(sz))
+            print("..with contig count: " + str(cnt))
+            print("..and an n50 of: %.2f\n" % n50)
+            
+        except:
+            print("Error: ",sys.exc_info()[0]," <- this happened.")
+        finally:
+           HelpMsg() 
         
     else:
         HelpMsg()
