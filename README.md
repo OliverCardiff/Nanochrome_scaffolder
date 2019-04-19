@@ -1,4 +1,4 @@
-# Nanochrome_scaffolder
+# Nanochrome Scaffolder
 Combines low depth 10x Chromium linkage with low depth nanopore long-reads to scaffold difficult assemblies
 
 ## Quickstart
@@ -33,7 +33,7 @@ cd minimap2-2.16_x64-linux/
 export PATH=$PATH:$PWD
 ```
 
-### Usage messages
+### Usage messages:
 
 Shell script:
 ```
@@ -88,9 +88,24 @@ Output:
 <prefix>_nodes_final.tsv: A node description file for visualisation
 ```
 
-## The sort of thing step 1 produces:
+## How It Works:
+
+[Chromium linked reads](https://www.10xgenomics.com/technology/) from 10x genomics work by barcoding many reads from the same long molecules of DNA. However, the weakness of this technology is that the fragment -> barcode assignment is stochastic, and mutliple fragments of DNA are typically associated with a single barcode. With sufficient sequencing depth, the original molecule structures can still be resolved for most model organisms. However, these organisms are typically vertebrates, or super inbred creepy crawlies.
+
+First, some form of de Brujin graph is used to assemble contigs, then the physical linkage information is used to build these into longer scaffolds, like so:
+
+![scaff_idea](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/flow_chart.svg)
+
+In the above image we can see that the multiple contigs aligned to by a single barcode's reads represent a highly ambiguous situation for scaffolding. However, the probability of very very many barcodes linking the same two scaffolds by chance is so incredibly low that we are safe to assume this means they are actually physically connected!
+
+
+But what if you have an earthworm with 10% absolute base sequence divergence between alleles? Will it still work the same? What if your novel organism is absolutely riddled with phages and transposons!? In these cases the initial kmer graph will often not resolve long enough contigs to scaffold properly.. Why?
+
+![doesntwork]()
+
+## The sort of thing chrome_candidates.py produces:
 ![demoimg](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/feature_img.png)
-## The sort of thing step 2 produces:
+## The sort of thing nano_confirms.py produces:
 ![Close](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/test_zoomout.png)
-## As close as you can get to the sort of thing step 2 produces without getting your eyes wet:
+## As close as you can get to the sort of thing nano_confirms.py produces without getting your eyes wet:
 ![Close](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/net_closeup.png)
