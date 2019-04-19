@@ -1,13 +1,91 @@
 # Nanochrome_scaffolder
 Combines low depth 10x Chromium linkage with low depth nanopore long-reads to scaffold difficult assemblies
 
-## Step 1: Generate Candidate Graphs with 10x barcode linkages
+## Quickstart
 
-Stuff
+No compilation required.
 
-Stuff
+Clone the scaffolder:
+```
+git clone https://github.com/OliverCardiff/Nanochrome_scaffolder
+```
 
-Stuff in development!
+Typical Usage:
+```
+./Run_Nanochrome.sh -g genome.fa -r chromium_reads.fq -n nanopore_reads.fq -f 29000 -p my_prefix -l 6
+```
+
+### Dependencies:
+
+
+1. [Python3](https://realpython.com/installing-python/#ubuntu)
+
+Follow the link and install python3, if you don't have it already.
+
+2. [minimap2](https://github.com/lh3/minimap2)
+
+Minimap2 can either downloaded as binaries on linux, or built from source. Follow the above link to find out how to do this.
+
+Quickly grabbing the minimap2 binaries and added them to the PATH temporarily:
+```
+curl -L https://github.com/lh3/minimap2/releases/download/v2.16/minimap2-2.16_x64-linux.tar.bz2 | tar -jxvf -
+cd minimap2-2.16_x64-linux/
+export PATH=$PATH:$PWD
+```
+
+### Usage messages
+
+Shell script:
+```
+Usage: ./Run_Nanochrome.sh
+        -g <file> Genome to scaffold in fasta format
+        -r <file(,file)> Chromium paired reads (if one file will assume interleaved)
+        -n <file> Nanopore reads, can be fasta, or fastq
+        -f <integer> 10x Library mean fragment length
+        -p <string> Prefix for output/processing files
+
+        OPTIONAL:
+        -l <integer> 3 - 20, Leniency: error/contiguity trade-off. Higher = More Error [5]
+```
+
+chrome_candidates.py:
+```
+Nanochrome - building barcode linkage candidates
+
+ARG1: <genome.fa> A Genome file
+ARG2: <alns.sam> Mapped 10X library
+ARG3: <integer> Fragment Length (x10 library)
+ARG4: <prefix> Unique prefix for outputs
+
+Output:
+
+<prefix>_candidates.fa: A set of scaffold candidates
+<prefix>_table.tsv: Potential connection table
+<prefix>_network.tsv: A network file for visualisation
+<prefix>_nodes.tsv: A node description file for visualisation
+
+You need to specify the three positional arguments
+```
+
+nano_confirms.py:
+```
+Nanochrome - confirming 10x with nanopore
+
+Input:
+
+ARG1: <genome.fa> A Genome file
+ARG2: <nc_table.tsv> output from chrome_candidates.py
+ARG3: <alns.paf> Mapped Longread library
+ARG4: <integer> Fragment Length (x10 library)
+ARG5: <integer> Tangle leniency [5-15]
+ARG6: <prefix> Unique prefix for outputs
+
+Output:
+
+<prefix>_nc_scaffolded.fa: Final Scaffolded Genome
+<prefix>_network_final.tsv: A network file for visualisation
+<prefix>_nodes_final.tsv: A node description file for visualisation
+```
 
 ## The sort of thing step 1 produces:
 ![demoimg](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/feature_img.png)
