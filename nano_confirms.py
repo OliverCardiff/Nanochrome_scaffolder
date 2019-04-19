@@ -7,7 +7,7 @@ QUANTILE_THRESH = 0.999
 EDGE_RATIO = 5
 CONF_WEIGHT = 20
 DEGREE_FILTER = 5
-QUAL = 25
+QUAL = 20
 AUTO_GAP = 2000
 TRIM_LIMIT = 500
 FRAG_LEN = 50000
@@ -28,7 +28,7 @@ class Join:
         self.gap = AUTO_GAP
         self.trim_amnt = 0
         self.best = False
-        self.mean10x = meanpos
+        self.mean_pos = meanpos
         
     def Reflect(self, scnm):       
         res, ref = self.other.HasFixedMatch(scnm)
@@ -1115,7 +1115,8 @@ def HelpMsg():
     print ("ARG2: <nc_table.tsv> output from chrome_candidates.py")
     print ("ARG3: <alns.paf> Mapped Longread library")
     print ("ARG4: <integer> Fragment Length (x10 library)")
-    print ("ARG5: <prefix> Unique prefix for outputs\n")
+    print ("ARG5: <integer> Tangle leniency [5-15]")
+    print ("ARG6: <prefix> Unique prefix for outputs\n")
     print ("Output:\n")
     print ("<prefix>_nc_scaffolded.fa: Final Scaffolded Genome")
     print ("<prefix>_network_final.tsv: A network file for visualisation")
@@ -1125,40 +1126,44 @@ def main(argv):
 
     # make sure there are at least three arguments
     if len(argv) >= 5:
-        try:
-            global FRAG_LEN
-            FRAG_LEN = int(argv[3])
-            the_graph = Graph(FRAG_LEN)
-            print("Scanning the genome...\n")
-            the_graph.ScanGenome(argv[0])
-            print("Reading the edge graph...\n")
-            the_graph.ReadTable(argv[1])
-            print("Pre-filtering edge graph...\n")
-            the_graph.PreFilterEdges()
-            the_graph.PreConfirmEdges()
-            print("Loading long-read .paf...\n")
-            the_graph.ReadPAF(argv[2])
-            print("Filtering network...\n")
-            the_graph.StripUnconfirmed()
-            print("Agent navigating graph...\n")
-            the_agent = Agent(the_graph.Scaffolds)
-            the_agent.RunPaths()
-            print("Fixing in optimal scaffold paths\n")
-            the_agent.PrintNetwork(argv[4])
-            print("Writing final assembly\n")
-            the_graph.StoreGenome(argv[0])
-            the_agent.PrintMetas(argv[4], the_graph.Scaffolds)
+#        try:
+        global FRAG_LEN
+        global EDGE_RATIO
+        global DEGREE_FILTER
+        EDGE_RATIO = int(argv[4])
+        DEGREE_FILTER = int(argv[4])
+        FRAG_LEN = int(argv[3])
+        the_graph = Graph(FRAG_LEN)
+        print("Scanning the genome...\n")
+        the_graph.ScanGenome(argv[0])
+        print("Reading the edge graph...\n")
+        the_graph.ReadTable(argv[1])
+        print("Pre-filtering edge graph...\n")
+        the_graph.PreFilterEdges()
+        the_graph.PreConfirmEdges()
+        print("Loading long-read .paf...\n")
+        the_graph.ReadPAF(argv[2])
+        print("Filtering network...\n")
+        the_graph.StripUnconfirmed()
+        print("Agent navigating graph...\n")
+        the_agent = Agent(the_graph.Scaffolds)
+        the_agent.RunPaths()
+        print("Fixing in optimal scaffold paths\n")
+        the_agent.PrintNetwork(argv[5])
+        print("Writing final assembly\n")
+        the_graph.StoreGenome(argv[0])
+        the_agent.PrintMetas(argv[5], the_graph.Scaffolds)
+        
+        n50, cnt, sz = the_graph.FinalStats(the_agent.Metas)
+        
+        print("The new genome size: " + str(sz))
+        print("..with contig count: " + str(cnt))
+        print("..and an n50 of: %.2f\n" % n50)
             
-            n50, cnt, sz = the_graph.FinalStats(the_agent.Metas)
-            
-            print("The new genome size: " + str(sz))
-            print("..with contig count: " + str(cnt))
-            print("..and an n50 of: %.2f\n" % n50)
-            
-        except:
-            print("Error: ",sys.exc_info()[0]," <- this happened.")
-        finally:
-           HelpMsg() 
+#        except:
+#            print("Error: ",sys.exc_info()[0]," <- this happened.")
+#        finally:
+#           HelpMsg() 
         
     else:
         HelpMsg()

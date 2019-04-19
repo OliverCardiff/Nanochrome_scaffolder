@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CHECK = 1
+CHECK=1
 if hash python3 2>/dev/null; then 
 	echo $'\n'"Found python3" 
 else
@@ -30,16 +30,32 @@ usage() { echo "
 	-n <file> Nanopore reads, can be fasta, or fastq
 	-f <integer> 10x Library mean fragment length
 	-p <string> Prefix for output/processing files
+	
+	OPTIONAL:
+	-l <integer> 3 - 20, Leniency: error/contiguity trade-off. Higher = More Error [5]
 	" 1>&2; exit 1; }
 
-while getopts ":g:r:n:f:p:" o; do
+l=5
+
+while getopts ":g:r:n:f:p:l:" o; do
     case "${o}" in
         f)
             f=${OPTARG}
             if [[ -n ${f//[0-9]/} ]]; then
-		echo $'\n'"-f fragment length must be an integer (probably 20000-70000)"
-		usage
+			echo $'\n'"-f fragment length must be an integer (probably 20000-70000)"
+			usage
 	    fi 
+            ;;
+		l)
+            l=${OPTARG}
+            if [[ -n ${l//[0-9]/} ]]; then
+				echo $'\n'"-l leniency must be an integer between 3 and 20 (inclusive)"
+				usage
+			fi
+			if $l < 3 || $l > 20; then
+				echo $'\n'"-l leniency must be an integer between 3 and 20 (inclusive)"
+				usage
+			fi
             ;;
         g)
             g=${OPTARG}
@@ -93,7 +109,7 @@ minimap2 -x ${p}_candidates.fa ${n} > ${p}_aln.paf
 echo $'\n'"Running nano_confirms.py to put everything together!"
 echo $'\n'"CMD: python3 $DIR/nano_confirms.py ${g} ${p}_table.tsv ${p}_aln.paf ${f} ${p}"
 
-python3 $DIR/nano_confirms.py ${g} ${p}_table.tsv ${p}_aln.paf ${f} ${p}
+python3 $DIR/nano_confirms.py ${g} ${p}_table.tsv ${p}_aln.paf ${f} ${l} ${p}
 
 rm -f ${p}_aln.sam ${p}_aln.paf
 rm -f ${p}_table.tsv
