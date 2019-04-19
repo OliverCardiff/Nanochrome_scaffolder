@@ -101,7 +101,9 @@ In the above image we can see that the multiple contigs aligned to by a single b
 
 But what if you have an earthworm with 10% absolute base sequence divergence between alleles? Will it still work the same? What if your novel organism is absolutely riddled with phages and transposons!? In these cases the initial kmer graph will often not resolve long enough contigs to scaffold properly.. Why?
 
-![doesntwork]()
+![doesntwork](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/can_scaff.svg)
+
+The sequencing of fragments does not preserve their sense, and with the sparsity of coverage it is very difficult to orient by strand, or arrange by order, a series smaller fragments.
 
 ## The sort of thing chrome_candidates.py produces:
 ![demoimg](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/feature_img.png)
