@@ -9,4 +9,9 @@ Stuff
 
 Stuff in development!
 
+## The sort of thing step 1 produces:
 ![demoimg](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/feature_img.png)
+## The sort of thing step 2 produces:
+![Close](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/test_zoomout.png)
+## As close as you can get to the sort of thing step 2 produces without getting your eyes wet:
+![Close](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/net_closeup.png)
