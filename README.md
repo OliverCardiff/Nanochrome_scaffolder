@@ -46,6 +46,7 @@ Usage: ./Run_Nanochrome.sh
 
         OPTIONAL:
         -l <integer> 3 - 20, Leniency: error/contiguity trade-off. Higher = More Error [5]
+        -c <flag> (clean up) Add flag if you wish to clean up non-essential processing files
 ```
 
 chrome_candidates.py:
