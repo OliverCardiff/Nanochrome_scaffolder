@@ -1109,7 +1109,7 @@ class Agent:
         print("Wrote " + genm + " successfully!\n")
        
 def HelpMsg():
-    print ("\nNanoChrome - Confirming 10x with nanopore\n")
+    print ("\nNanochrome - confirming 10x with nanopore\n")
     print ("Input:\n")
     print ("ARG1: <genome.fa> A Genome file")
     print ("ARG2: <nc_table.tsv> output from chrome_candidates.py")
@@ -1126,49 +1126,47 @@ def main(argv):
 
     # make sure there are at least three arguments
     if len(argv) >= 5:
-#        try:
-        global FRAG_LEN
-        global EDGE_RATIO
-        global DEGREE_FILTER
-        EDGE_RATIO = int(argv[4])
-        DEGREE_FILTER = int(argv[4])
-        FRAG_LEN = int(argv[3])
-        the_graph = Graph(FRAG_LEN)
-        print("Scanning the genome...\n")
-        the_graph.ScanGenome(argv[0])
-        print("Reading the edge graph...\n")
-        the_graph.ReadTable(argv[1])
-        print("Pre-filtering edge graph...\n")
-        the_graph.PreFilterEdges()
-        the_graph.PreConfirmEdges()
-        print("Loading long-read .paf...\n")
-        the_graph.ReadPAF(argv[2])
-        print("Filtering network...\n")
-        the_graph.StripUnconfirmed()
-        print("Agent navigating graph...\n")
-        the_agent = Agent(the_graph.Scaffolds)
-        the_agent.RunPaths()
-        print("Fixing in optimal scaffold paths\n")
-        the_agent.PrintNetwork(argv[5])
-        print("Writing final assembly\n")
-        the_graph.StoreGenome(argv[0])
-        the_agent.PrintMetas(argv[5], the_graph.Scaffolds)
-        
-        n50, cnt, sz = the_graph.FinalStats(the_agent.Metas)
-        
-        print("The new genome size: " + str(sz))
-        print("..with contig count: " + str(cnt))
-        print("..and an n50 of: %.2f\n" % n50)
+        try:
+            global FRAG_LEN
+            global EDGE_RATIO
+            global DEGREE_FILTER
+            EDGE_RATIO = int(argv[4])
+            DEGREE_FILTER = int(argv[4])
+            FRAG_LEN = int(argv[3])
+            the_graph = Graph(FRAG_LEN)
+            print("Scanning the genome...\n")
+            the_graph.ScanGenome(argv[0])
+            print("Reading the edge graph...\n")
+            the_graph.ReadTable(argv[1])
+            print("Pre-filtering edge graph...\n")
+            the_graph.PreFilterEdges()
+            the_graph.PreConfirmEdges()
+            print("Loading long-read .paf...\n")
+            the_graph.ReadPAF(argv[2])
+            print("Filtering network...\n")
+            the_graph.StripUnconfirmed()
+            print("Agent navigating graph...\n")
+            the_agent = Agent(the_graph.Scaffolds)
+            the_agent.RunPaths()
+            print("Fixing in optimal scaffold paths\n")
+            the_agent.PrintNetwork(argv[5])
+            print("Writing final assembly\n")
+            the_graph.StoreGenome(argv[0])
+            the_agent.PrintMetas(argv[5], the_graph.Scaffolds)
             
-#        except:
-#            print("Error: ",sys.exc_info()[0]," <- this happened.")
-#        finally:
-#           HelpMsg() 
-        
+            n50, cnt, sz = the_graph.FinalStats(the_agent.Metas)
+            
+            print("The new genome size: " + str(sz))
+            print("..with contig count: " + str(cnt))
+            print("..and an n50 of: %.2f\n" % n50)
+            
+        except:
+            print("Error: ",sys.exc_info()[0]," <- this happened.")
+            HelpMsg()
     else:
         HelpMsg()
         print("You need to specify the four positional arguments\n")
-        sys.exit(2)
+        #sys.exit(2)
  
  
 if __name__ == '__main__':

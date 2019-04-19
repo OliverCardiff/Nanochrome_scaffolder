@@ -173,7 +173,7 @@ class Genome:
         
         gn.close()
         go.close()
-        print("Wrote " + cntg + " successfully!\n")
+        print("Wrote " + cntg + " successfully!")
      
     def ReadFasta(self, fname):
         glen = 0
@@ -326,16 +326,16 @@ class Genome:
                         
 
 def HelpMsg():
-    print ("NanoChrome - Long Seq Consensus scaffolds\n\n")
-    print ("ARG1: <genome.fa> A Genome file\n")
-    print ("ARG2: <alns.sam> Mapped 10X library\n")
+    print ("\nNanochrome - building barcode linkage candidates\n")
+    print ("ARG1: <genome.fa> A Genome file")
+    print ("ARG2: <alns.sam> Mapped 10X library")
     print ("ARG3: <integer> Fragment Length (x10 library)")
-    print ("ARG4: <prefix> Unique prefix for outputs\n\n")
+    print ("ARG4: <prefix> Unique prefix for outputs\n")
     print ("Output:\n")
-    print ("<prefix>_candidates.fa: A set of scaffold candidates\n")
-    print ("<prefix>_table.tsv: Potential connection table\n")
-    print ("<prefix>_network.tsv: A network file for visualisation\n")
-    print ("<prefix>_nodes.tsv: A node description file for visualisation\n\n")
+    print ("<prefix>_candidates.fa: A set of scaffold candidates")
+    print ("<prefix>_table.tsv: Potential connection table")
+    print ("<prefix>_network.tsv: A network file for visualisation")
+    print ("<prefix>_nodes.tsv: A node description file for visualisation\n")
 
 def main(argv):
 
@@ -356,15 +356,15 @@ def main(argv):
             the_genome.MirrorDown(argv[3])
             print("Writing Candidates...\n")
             the_genome.PrintFasta(argv[0], argv[3])
+            #sys.exit(2)
         except:
             print("Error: ",sys.exc_info()[0]," <- this happened.")
-        finally:
-           HelpMsg() 
+            HelpMsg()
         
     else:
         HelpMsg()
         print("You need to specify the three positional arguments\n")
-        sys.exit(2)
+        #sys.exit(2)
  
  
 if __name__ == '__main__':

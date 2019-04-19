@@ -36,8 +36,9 @@ usage() { echo "
 	" 1>&2; exit 1; }
 
 l=5
+c=0
 
-while getopts ":g:r:n:f:p:l:" o; do
+while getopts ":g:r:n:f:p:l:c" o; do
     case "${o}" in
         f)
             f=${OPTARG}
@@ -69,6 +70,8 @@ while getopts ":g:r:n:f:p:l:" o; do
 		p)
             p=${OPTARG}
             ;;
+		c)
+			c=1
         *)
 	    echo $'\n'"Unrecognised entry: ${OPTARG}"
             usage
@@ -81,7 +84,7 @@ if [ -z "${g}" ] || [ -z "${rd}" ] || [ -z "${n}" ] || [ -z "${f}" ] || [ -z "${
     usage
 fi
 
-if CHECK == 0; then
+if [ "$CHECK" -eq "0" ]; then
 	exit 1
 fi
 
@@ -90,6 +93,7 @@ echo "10x Reads are: 		${rd}"
 echo "Nanopores are: 		${n}"
 echo "Output prefix is: 	${p}"
 echo "Fragment length is: 	${f}"
+echo "Leniency is set to:   	${l}"
 
 echo $'\n'"Running minimap2 - mapping 10x reads to genome.."
 echo $'\n'"CMD: minimap2 -ax sr ${g} ${rd} > ${p}_aln.sam"
@@ -111,6 +115,9 @@ echo $'\n'"CMD: python3 $DIR/nano_confirms.py ${g} ${p}_table.tsv ${p}_aln.paf $
 
 python3 $DIR/nano_confirms.py ${g} ${p}_table.tsv ${p}_aln.paf ${f} ${l} ${p}
 
-rm -f ${p}_aln.sam ${p}_aln.paf
-rm -f ${p}_table.tsv
-rm -f ${p}_candidates.fa
+if [ "$c" -eq "1" ]; then
+	rm -f ${p}_aln.sam ${p}_aln.paf
+	rm -f ${p}_table.tsv
+	rm -f ${p}_candidates.fa
+fi
+
