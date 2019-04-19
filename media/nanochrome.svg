@@ -9,9 +9,9 @@
    xmlns="http://www.w3.org/2000/svg"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   width="210mm"
+   width="230mm"
    height="16mm"
-   viewBox="0 0 210 16"
+   viewBox="0 0 230 16"
    version="1.1"
    id="svg2961"
    inkscape:version="0.92.2 (5c3e80d, 2017-08-06)"
@@ -25,9 +25,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.979899"
-     inkscape:cx="359.5913"
-     inkscape:cy="102.22862"
+     inkscape:zoom="1.4"
+     inkscape:cx="497.4508"
+     inkscape:cy="104.8233"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -53,34 +53,38 @@
      inkscape:groupmode="layer"
      id="layer1"
      transform="translate(0,-281)">
-    <rect
-       style="opacity:1;fill:#b3b3b3;fill-opacity:0.09019608;fill-rule:evenodd;stroke:none;stroke-width:0.34699997;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:fill markers stroke"
-       id="rect3521"
-       width="206.0648"
-       height="14.967093"
-       x="2.4054258"
-       y="281.50375" />
     <g
-       id="g3515"
-       transform="translate(54.852403,278.73238)">
+       id="g3528"
+       transform="matrix(1.0926301,0,0,1,-0.22281476,0)">
       <rect
-         y="4.2952375"
-         x="6.0476193"
-         height="11.906252"
-         width="86.556549"
-         id="rect3506"
-         style="opacity:1;fill:#0e0e0e;fill-opacity:0.09019608;fill-rule:evenodd;stroke:none;stroke-width:0.17798062;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:fill markers stroke" />
-      <text
-         id="text3510"
-         y="13.933629"
-         x="49.136906"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:11.28888893px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:sans-serif;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.26458332"
-         xml:space="preserve"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:11.28888893px;font-family:'Cambria Math';-inkscape-font-specification:'Cambria Math';fill:#ffffff;stroke-width:0.26458332"
-           y="13.933629"
+         y="281.50375"
+         x="2.4054258"
+         height="14.967093"
+         width="206.0648"
+         id="rect3521"
+         style="opacity:1;fill:#b3b3b3;fill-opacity:0.09019608;fill-rule:evenodd;stroke:none;stroke-width:0.34699997;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:fill markers stroke" />
+      <g
+         transform="translate(54.852403,278.73238)"
+         id="g3515">
+        <rect
+           style="opacity:1;fill:#0e0e0e;fill-opacity:0.09019608;fill-rule:evenodd;stroke:none;stroke-width:0.17798062;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:fill markers stroke"
+           id="rect3506"
+           width="86.556549"
+           height="11.906252"
+           x="6.0476193"
+           y="4.2952375" />
+        <text
+           xml:space="preserve"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:11.28888893px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:sans-serif;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.26458332"
            x="49.136906"
-           id="tspan3508"
-           sodipodi:role="line">NANOCHROME</tspan></text>
+           y="13.933629"
+           id="text3510"><tspan
+             sodipodi:role="line"
+             id="tspan3508"
+             x="49.136906"
+             y="13.933629"
+             style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:11.28888893px;font-family:'Cambria Math';-inkscape-font-specification:'Cambria Math';fill:#ffffff;stroke-width:0.26458332">NANOCHROME</tspan></text>
+      </g>
     </g>
   </g>
 </svg>
