@@ -2645,7 +2645,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="1.4"
-     inkscape:cx="516.7004"
+     inkscape:cx="400.62897"
      inkscape:cy="118.99659"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
@@ -2664,7 +2664,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -2917,7 +2917,7 @@
        d="m 93.412384,287.68401 c 3.598695,0 7.197386,0 10.796086,0"
        style="fill:none;stroke:#2dd600;stroke-width:0.89356416;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
     <path
-       style="fill:none;stroke:#2dd600;stroke-width:0.26499999;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:0.26499999,0.26499999;stroke-dashoffset:0"
+       style="fill:none;stroke:#2dd600;stroke-width:0.35;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:0.35,0.35;stroke-dashoffset:0"
        d="m 29.640268,248.92993 c 21.257373,12.91803 42.514742,25.83605 63.772115,38.75408"
        id="path1102"
        inkscape:connector-curvature="0"
@@ -2994,7 +2994,7 @@
        inkscape:path-effect="#path-effect1164;#path-effect1166"
        inkscape:original-d="m 139.66921,249.69528 29.94645,0.26728" />
     <path
-       style="fill:none;stroke:#2dd600;stroke-width:0.26499999;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:0.26499999,0.26499999;stroke-dashoffset:0"
+       style="fill:none;stroke:#2dd600;stroke-width:0.35;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:0.35,0.35;stroke-dashoffset:0"
        d="m 189.45164,248.68684 c -8.4893,12.98433 -16.97859,25.96865 -25.46789,38.95298"
        id="path1168"
        inkscape:connector-curvature="0"
