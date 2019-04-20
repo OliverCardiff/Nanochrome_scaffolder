@@ -106,9 +106,15 @@ But what if you have an earthworm with 10% absolute base sequence divergence bet
 
 The sequencing of fragments does not preserve their sense, and with the sparsity of coverage it is very difficult to orient by strand, or arrange by order, a series smaller fragments. Lets look at a different solution to the same problem...
 
-[Oxford Nanopore](https://nanoporetech.com/learn-more), and specifically the minION sequencer, are capable of creating very long reads of single DNA molecules (up to, and even above 100kb). However, the error rate for each read is ~90-95% accuracy. This means that for each read, approximately 1-in-10 to 1-in-20 bases will be miscalled. If the absolute base sequence divergence of two alleles in an inflated assembly is comparable to this, it will introduce substantial ambiguity to the scaffolding process. For example:
+[Oxford Nanopore](https://nanoporetech.com/learn-more), and specifically the minION sequencer, are capable of creating very long reads of single DNA molecules (up to, and even above 100kb). These reads can be very useful for scaffolding in cases where the mapping is non-redundant. In assemblies of low allelic divergence genomes, or those without extensive repeat content, simple repeated overlaps of paired contigs are sufficient to create well oriented scaffolds - and even close to accurate consensus sequence for the gaps between them.
+
+![nanopores2](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/nanopore2.svg)
+
+However, the error rate for each read is ~90-95% accuracy and this can create issues. It means that for each read, approximately 1-in-10 to 1-in-20 bases will be miscalled. If the absolute base sequence divergence of two alleles in an inflated assembly is comparable to this, it will introduce substantial ambiguity to the scaffolding process. For example:
 
 ![nanopores1](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/nanopore.svg)
+
+From the above illustration it can be seen that there are assembly 'grey areas' in the construction of genomic scaffolds when using either of the two library types. By combining them in a single scaffolding process, Nanochrome seeks to allow for the the strengths of each to account for the other's flaws!
 
 ## The sort of thing chrome_candidates.py produces:
 ![demoimg](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/feature_img.png)
