@@ -1,4 +1,4 @@
-![nanochrome](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/nanochrome3.svg)
+![nanochrome](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/nanochrome4.svg)
 
 Combines low depth 10x Chromium linkage with low depth nanopore long-reads to scaffold difficult assemblies
 
@@ -115,6 +115,10 @@ However, the error rate for each read is ~90-95% accuracy and this can create is
 ![nanopores1](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/nanopore.svg)
 
 From the above illustration it can be seen that there are assembly 'grey areas' in the construction of genomic scaffolds when using either of the two library types. By combining them in a single scaffolding process, Nanochrome seeks to allow for the the strengths of each to account for the other's flaws!
+
+![combo](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/nanochrome_algo.svg)
+
+By relying on the chromium library to separate collections of short contigs into allelic groups, and then using the nanopore read alignments to orient them with respect to eachother, we are able to perform a scaffolding operation on the assembly which either information source on its own would not permit!
 
 ## The sort of thing chrome_candidates.py produces:
 ![demoimg](https://github.com/OliverCardiff/Nanochrome_scaffolder/blob/master/media/feature_img.png)
