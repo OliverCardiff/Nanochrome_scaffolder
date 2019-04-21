@@ -27,15 +27,12 @@ class Join:
         self.orientation = 'F'
         self.gap = AUTO_GAP
         self.trim_amnt = 0
-        self.best = False
         self.mean_pos = meanpos
         
     def Reflect(self, scnm):       
         res, ref = self.other.HasFixedMatch(scnm)
         
-        if res == 'L':
-            return [res, ref]
-        elif res == 'R':
+        if res != 'N':
             return [res, ref]
         else:
             return [res, None]
@@ -132,12 +129,22 @@ class Scaffold:
         self.length = length
         self.in_meta = False
         self.in_loop = False
-        self.best_length = 0
         self.seq = ""
         
         self.Left = {}
         self.Right = {}
         self.Both = {}
+        
+    def ShuntBoths(self):
+        if self.Both:
+            if self.Left and not self.Right:
+                self.DegreeFilter(l=False,r=False,b=True)
+                self.Right = self.Both
+                self.Both = {}
+            if not self.Left and self.Right:
+                self.DegreeFilter(l=False,r=False,b=True)
+                self.Left = self.Both
+                self.Both = {}
         
     def PrintIt(self, handle):
         mln = len(self.seq)
@@ -151,6 +158,41 @@ class Scaffold:
         if rem > 0:
             subs = self.seq[(mln - rem):mln]
             handle.write(subs + "\n")
+            
+    def IsBest(self, jn, nxt):
+        def ChooseDest(dct, b1):
+            if len(dct) > 0:
+                best = b1
+                for ks,jn in dct.items():
+                    if not jn.other.in_meta:
+                        if jn.nano_confs > best.nano_confs:
+                            best = jn
+                        elif jn.nano_confs == best.nano_confs:
+                            if jn.auto_confs > best.auto_confs:
+                                best = jn
+                            elif jn.auto_confs == best.auto_confs:
+                                if jn.weight > best.weight:
+                                    best = jn
+                return best
+            else:
+                return None
+            
+        res = False
+        
+        if nxt == 'L':
+            if len(self.Left) == 1:
+                res = True
+            else:
+                jn2 = ChooseDest(self.Left, jn)
+                res = jn2.other.name == jn.other.name
+        if nxt == 'R':
+            if len(self.Right) == 1:
+                res = True
+            else:
+                jn2 = ChooseDest(self.Right, jn)
+                res = jn2.other.name == jn.other.name
+            
+        return res
         
     def IsEntryPoint(self):
         if self.Left and not self.Right:
@@ -193,7 +235,7 @@ class Scaffold:
         def UpdateSwitch(jn, trim, gap, rev):
             jn.trim_amnt = trim
             jn.gap = gap
-            jn.nano_confs = 1
+            jn.nano_confs += 1
             if rev:
                 jn.orientation = 'R'
                 
@@ -216,35 +258,36 @@ class Scaffold:
              
     def RunAutoConf(self, fraglen):
         def CheckEntry(tail1, vl, ch1, ch2):
-            if vl.weight > CONF_WEIGHT:
-                res, v2 = vl.other.HasFixedMatch(self.name)
-                if res == 'L':
-                    tail2 = v2.mean_pos
-                    remains = int(fraglen - tail1 - tail2)
-                    vl.orientation = ch1
-                    vl.auto_confs = 1
-                    vl.gap = max([TRIM_LIMIT, remains])
-                    return 1
-                if res == 'R':
-                    tail2 = vl.other.length - v2.mean_pos
-                    remains = int(fraglen - tail1 - tail2)
-                    vl.orientation = ch2
-                    vl.auto_confs = 1
-                    vl.gap = max([TRIM_LIMIT, remains])
-                    return 1
+            res, v2 = vl.other.HasFixedMatch(self.name)
+            if res == 'L':
+                tail2 = v2.mean_pos
+                remains = int(fraglen - tail1 - tail2)
+                vl.orientation = ch1
+                vl.auto_confs = 1
+                vl.gap = max([TRIM_LIMIT, remains])
+                return 1
+            if res == 'R':
+                tail2 = vl.other.length - v2.mean_pos
+                remains = int(fraglen - tail1 - tail2)
+                vl.orientation = ch2
+                vl.auto_confs = 1
+                vl.gap = max([TRIM_LIMIT, remains])
+                return 1
             return 0
         
         cnf = 0
         allc = 0
         for ks,vl in self.Left.items():
-            allc += 1
-            tail1 = vl.mean_pos
-            cnf += CheckEntry(tail1, vl, 'R', 'F')
+            if not vl.auto_confs and not vl.nano_confs:
+                allc += 1
+                tail1 = vl.mean_pos
+                cnf += CheckEntry(tail1, vl, 'R', 'F')
             
         for ks,vl in self.Right.items():
-            allc += 1
-            tail1 = self.length - vl.mean_pos
-            cnf += CheckEntry(tail1, vl, 'F', 'R')
+            if not vl.auto_confs and not vl.nano_confs:
+                allc += 1
+                tail1 = self.length - vl.mean_pos
+                cnf += CheckEntry(tail1, vl, 'F', 'R')
         
         allc += len(self.Both)
         
@@ -358,7 +401,7 @@ class Scaffold:
         nrem = nrem - rem
         return [rem, nrem]
             
-    def DegreeFilter(self):
+    def DegreeFilter(self, l=True,r=True,b=False):
         hval = 0
         def FilterOut(dct):
             for jns in dct.values():
@@ -384,32 +427,30 @@ class Scaffold:
             ln = len(dct)
             
             if ln > DEGREE_FILTER:
-                if ln > (DEGREE_FILTER * 10):
-                    hval = ln
-                    FilterOut(dct)
-                    replacement = {}
-                else:
-                    hval = ln - DEGREE_FILTER
-                    k, c = SplitDict(dct)
-                    replacement = k
-                    FilterOut(c)
+                hval = ln - DEGREE_FILTER
+                k, c = SplitDict(dct)
+                replacement = k
+                FilterOut(c)
                     
             return replacement, hval
         
-        ret, hv = FilterDict(self.Left)
+        if l:
+            ret, hv = FilterDict(self.Left)
+            
+            self.Left = ret
+            hval += hv
         
-        self.Left = ret
-        hval += hv
+        if r:
+            ret, hv = FilterDict(self.Right)
+            
+            self.Right = ret
+            hval += hv
         
-        ret, hv = FilterDict(self.Right)
-        
-        self.Right = ret
-        hval += hv
-        
-        ret, hv = FilterDict(self.Both)
-        
-        self.Both = ret
-        hval += hv
+        if b:
+            ret, hv = FilterDict(self.Both)
+            
+            self.Both = ret
+            hval += hv
             
         return hval
             
@@ -450,6 +491,11 @@ class Graph:
         self.PreN50 = 0
         self.PostN50 = 0
         self.FragLen = flen
+        
+    def ResetScaffs(self):
+        for sc,vl in self.Scaffolds.items():
+            vl.in_meta = False
+            vl.in_loop = False
         
     def GetSeq(self, othnm):
         if othnm in self.Scaffolds:
@@ -573,7 +619,14 @@ class Graph:
         print("Assembly N50 is: %.2f\n" % self.PreN50)
         
     def ReadTable(self, tnam):
-        
+        def AddRow(row, members):
+            sc1 = self.Scaffolds[row.CNTG1]
+            sc2 = self.Scaffolds[row.CNTG2]
+            members[row.CNTG1] = 1
+            members[row.CNTG2] = 1
+            sc1.AddJoin(sc2, row.WEIGHT, row.MEAN1, row.TYPE1)
+            sc2.AddJoin(sc1, row.WEIGHT, row.MEAN2, row.TYPE2)
+            
         def GetInc(t1, t2, tst):
             rv = 0
             if t1 == tst:
@@ -587,6 +640,9 @@ class Graph:
         jinc = linc = rinc = binc = 0
         
         tbl = pd.read_csv(tnam, sep="\t")
+        tbl['CNTG1'] = tbl['CNTG1'].astype(str)
+        tbl['CNTG2'] = tbl['CNTG2'].astype(str)
+        
         print("Actual join count: " + str(tbl.shape[0]))
         global CONF_WEIGHT
         global QUANTILE_THRESH
@@ -595,6 +651,9 @@ class Graph:
         act_ratio = 0
         
         print("Adjusting quantile filter...\n")
+        
+        tblB = tbl[tbl['TYPE1'] == 'B']
+        tblB = tblB[tblB['TYPE2'] == 'B']
         
         while QUANTILE_THRESH > 0.8 and act_ratio < EDGE_RATIO: 
             CONF_WEIGHT = tbl.WEIGHT.quantile(QUANTILE_THRESH)
@@ -605,37 +664,69 @@ class Graph:
             act_ratio = ln2/sln
             QUANTILE_THRESH -= 0.005
             
-        tbl = tbl.loc[tbl.WEIGHT > CONF_WEIGHT]
-        print("\nPost filter count to load: " + str(tbl.shape[0]) + "\n")
+        tbl2 = tbl.loc[tbl.WEIGHT > CONF_WEIGHT]
+        print("\nPost filter directed to load: " + str(tbl2.shape[0]))
+        print("Small Frag Nano-bait to load: " + str(tblB.shape[0]) + "\n")
         
-        CONF_WEIGHT = int(CONF_WEIGHT * 1.334)
+        membership = {}
         
-        for i in range(len(tbl)):
-            row = tbl.iloc[i]
-            
-            wt = row.WEIGHT
-            t1 = row.TYPE1
-            t2 = row.TYPE2
-            m1 = row.MEAN1
-            m2 = row.MEAN2
-            sc1nm = str(row.CNTG1)
-            sc2nm = str(row.CNTG2)
+        CONF_WEIGHT = int(CONF_WEIGHT)
+        
+        for i in range(len(tbl2)):
+            row = tbl2.iloc[i]
             
             jinc += 2
-            rinc += GetInc(t1,t2, 'R')
-            linc += GetInc(t1,t2, 'L')
-            binc += GetInc(t1,t2, 'B')
+            rinc += GetInc(row.TYPE1,row.TYPE2, 'R')
+            linc += GetInc(row.TYPE1,row.TYPE2, 'L')
+            binc += GetInc(row.TYPE1,row.TYPE2, 'B')
             
-            if sc1nm in self.Scaffolds and sc2nm in self.Scaffolds:
-                sc1 = self.Scaffolds[sc1nm]
-                sc2 = self.Scaffolds[sc2nm]
-                sc1.AddJoin(sc2, wt, m1, t1)
-                sc2.AddJoin(sc1, wt, m2, t2)
-
+            AddRow(row, membership)
+            
+        for i in range(len(tblB)):
+            row = tblB.iloc[i]            
+            jinc += 2
+            binc += GetInc(row.TYPE1,row.TYPE2, 'B')
+            AddRow(row, membership)
+        
+        '''
+        for sc,vl in self.Scaffolds.items():
+            if sc not in membership:
+                tbl2 = tbl[tbl['CNTG1'] == sc]
+                
+                if tbl2.shape[0] > 0:
+                    tbl2 = tbl2.sort_values(by='WEIGHT', ascending=False)
+                    for i in range(min([len(tbl2),DEGREE_FILTER])):
+                        row = tbl2.iloc[i]
+                        
+                        jinc += 2
+                        rinc += GetInc(row.TYPE1,row.TYPE2, 'R')
+                        linc += GetInc(row.TYPE1,row.TYPE2, 'L')
+                        binc += GetInc(row.TYPE1,row.TYPE2, 'B')
+                        
+                        AddRow(row, membership)
+                        
+                tbl2 = tbl[tbl['CNTG2'] == sc]
+                
+                if tbl2.shape[0] > 0:
+                    tbl2 = tbl2.sort_values(by='WEIGHT', ascending=False)
+                    for i in range(min([len(tbl2),DEGREE_FILTER])):
+                        row = tbl2.iloc[i]
+                        
+                        jinc += 2
+                        rinc += GetInc(row.TYPE1,row.TYPE2, 'R')
+                        linc += GetInc(row.TYPE1,row.TYPE2, 'L')
+                        binc += GetInc(row.TYPE1,row.TYPE2, 'B')
+                        
+                        AddRow(row, membership)
+        '''
+            
+        lnmb = len(membership)
+            
         print ("Loaded " + str(jinc) + " partial joins")
         print ("With " + str(linc) + " left arks")
         print ("With " + str(rinc) + " right arks")
-        print ("With " + str(binc) + " ambiguous arks\n")
+        print ("With " + str(binc) + " ambiguous arks")
+        print ("Shared by " + str(lnmb) + " scaffolds\n")
         
     def ReadPAF(self, fname):
         rinc = linc = revs = uniqs = confirmed = removed = 0
@@ -894,6 +985,7 @@ class Agent:
             self.trims = []
             self.jdat = []
             self.entry = entry
+            self.loop_terminal = False
             
         def LoopCheck(self):
             for sc in self.scaffs:
@@ -934,6 +1026,10 @@ class Agent:
                 ln2 = sum([sc.length for sc in other.scaffs])
 
                 return ln < ln2
+            
+    def ResolveNewlyDirectionalJoins(self):
+        for sc in self.Scaffolds:
+            sc.ShuntBoths()
         
     def StripGraph(self):
         sc2 = []
@@ -944,19 +1040,21 @@ class Agent:
                 
         self.Scaffolds = sc2
         
-    def Traverse(self, scaff, entry):
+    def Traverse(self, scaff, entry, looper=False):
         def ChooseDest(dct):
             if len(dct) > 0:
                 best = next(iter(dct.values()))
                 
                 for ks,jn in dct.items():
-                    if jn.nano_confs and not best.nano_confs:
-                        best = jn
-                    elif jn.nano_confs == best.nano_confs:
-                        if jn.auto_confs and not best.auto_confs:
+                    if not jn.other.in_meta:
+                        if jn.nano_confs > best.nano_confs:
                             best = jn
-                        elif jn.weight > best.weight:
-                            best = jn
+                        elif jn.nano_confs == best.nano_confs:
+                            if jn.auto_confs > best.auto_confs:
+                                best = jn
+                            elif jn.auto_confs == best.auto_confs:
+                                if jn.weight > best.weight:
+                                    best = jn
                 return best
             else:
                 return None
@@ -982,8 +1080,17 @@ class Agent:
                 can_move = False
             else:
                 next_entry, jn2 = jn.Reflect(scaff.name)
-                if not jn2 or jn.other.name in journey or jn.other.in_meta:
-                    can_move = False
+                rbj_result = jn.other.IsBest(jn2, next_entry) if jn2 else False
+                
+                rbj_result = rbj_result if not looper else True
+                
+                inj = jn.other.name in journey
+                
+                if inj:
+                    pm.loop_terminal = True
+                
+                if not jn2 or jn.other.in_meta or not rbj_result or inj:
+                    can_move = False                    
                 else:
                     scaff = jn.other
                     entry_point = next_entry
@@ -1003,13 +1110,14 @@ class Agent:
         
         for sc in self.Scaffolds:
             if sc.Left and sc.Right:
-                pma = self.Traverse(sc, 'L')
-                pmb = self.Traverse(sc, 'R')
+                pma = self.Traverse(sc, 'L', looper=False)
+                pmb = self.Traverse(sc, 'R', looper=False)
                 
-                if len(pma.scaffs) > 1:
-                    pms.append(pma)
-                if len(pmb.scaffs) > 1:
-                    pms.append(pmb)
+                if pma.loop_terminal and pmb.loop_terminal:
+                    if len(pma.scaffs) > 1:
+                        pms.append(pma)
+                    if len(pmb.scaffs) > 1:
+                        pms.append(pmb)
                     
         pms = sorted(pms, reverse=True)
         for p in pms:
@@ -1026,7 +1134,6 @@ class Agent:
         total_metas = 0
         inc = 0
         prems = []
-        can_shatter = True
         lsht = 0
         
         tscs = len(self.Scaffolds)
@@ -1041,6 +1148,14 @@ class Agent:
             
             for sc in self.Scaffolds:
                 sc.in_loop = False
+            
+            if inc > 2:
+                print("Running disentangler..")
+                shat = self.LoopShatter()
+                lsht += shat
+                print("..picked open " + str(shat) + " loops\n")
+            
+            for sc in self.Scaffolds:
                 res = sc.IsEntryPoint()
                 if res:
                     res = 'L' if res == 'R' else 'R'
@@ -1062,20 +1177,11 @@ class Agent:
                     met.Name("Nanochrome_scaffold_" + str(total_metas))
                     self.Metas.append(met)
                     
-            if metas_kept:
-                can_shatter = True
             
             print("Meta-scaffolding iteration: " + str(inc))
             print("..new scaffolds created: " + str(metas_built))
             print("..of which kept: " + str(metas_kept) + "\n")
-            
-            if can_shatter and inc > 1:
-                print("Running loop breaker")
-                shat = self.LoopShatter()
-                lsht += shat
-                if shat and not metas_kept:
-                    metas_kept = 1
-                print("..broke open " + str(shat) + " loops\n")
+                
                 
         print ("Grand Total of: " + str(total_metas) + " metascaffolds built")
         print ("Unpicked " + str(lsht) + " tangles in graph")
@@ -1126,43 +1232,44 @@ def main(argv):
 
     # make sure there are at least three arguments
     if len(argv) >= 5:
-        try:
-            global FRAG_LEN
-            global EDGE_RATIO
-            global DEGREE_FILTER
-            EDGE_RATIO = int(argv[4])
-            DEGREE_FILTER = int(argv[4])
-            FRAG_LEN = int(argv[3])
-            the_graph = Graph(FRAG_LEN)
-            print("Scanning the genome...\n")
-            the_graph.ScanGenome(argv[0])
-            print("Reading the edge graph...\n")
-            the_graph.ReadTable(argv[1])
-            print("Pre-filtering edge graph...\n")
-            the_graph.PreFilterEdges()
-            the_graph.PreConfirmEdges()
-            print("Loading long-read .paf...\n")
-            the_graph.ReadPAF(argv[2])
-            print("Filtering network...\n")
-            the_graph.StripUnconfirmed()
-            print("Agent navigating graph...\n")
-            the_agent = Agent(the_graph.Scaffolds)
-            the_agent.RunPaths()
-            print("Fixing in optimal scaffold paths\n")
-            the_agent.PrintNetwork(argv[5])
-            print("Writing final assembly\n")
-            the_graph.StoreGenome(argv[0])
-            the_agent.PrintMetas(argv[5], the_graph.Scaffolds)
+#        try:
+        global FRAG_LEN
+        global EDGE_RATIO
+        EDGE_RATIO = int(argv[4])
+        FRAG_LEN = int(argv[3])
+        the_graph = Graph(FRAG_LEN)
+        print("Scanning the genome...\n")
+        the_graph.ScanGenome(argv[0])
+        print("Reading the edge graph...\n")
+        the_graph.ReadTable(argv[1])
+        print("Pre-filtering edge graph...\n")
+        the_graph.PreFilterEdges()
+        the_graph.PreConfirmEdges()
+        print("Loading long-read .paf...\n")
+        the_graph.ReadPAF(argv[2])
+        print("Filtering network...\n")
+        the_agent = Agent(the_graph.Scaffolds)
+        the_agent.ResolveNewlyDirectionalJoins()
+        the_graph.PreConfirmEdges()
+        the_graph.StripUnconfirmed()
+        print("Agent navigating graph...\n")
+        the_graph.ResetScaffs()
+        the_agent.RunPaths()
+        print("Fixing in optimal scaffold paths\n")
+        the_agent.PrintNetwork(argv[5])
+        print("Writing final assembly\n")
+        the_graph.StoreGenome(argv[0])
+        the_agent.PrintMetas(argv[5], the_graph.Scaffolds)
+        
+        n50, cnt, sz = the_graph.FinalStats(the_agent.Metas)
+        
+        print("The new genome size: " + str(sz))
+        print("..with contig count: " + str(cnt))
+        print("..and an n50 of: %.2f\n" % n50)
             
-            n50, cnt, sz = the_graph.FinalStats(the_agent.Metas)
-            
-            print("The new genome size: " + str(sz))
-            print("..with contig count: " + str(cnt))
-            print("..and an n50 of: %.2f\n" % n50)
-            
-        except:
-            print("Error: ",sys.exc_info()[0]," <- this happened.")
-            HelpMsg()
+#        except:
+#            print("Error: ",sys.exc_info()[0]," <- this happened.")
+#            HelpMsg()
     else:
         HelpMsg()
         print("You need to specify the four positional arguments\n")
