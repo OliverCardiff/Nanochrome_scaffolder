@@ -33,6 +33,7 @@ usage() { echo "
 	
 	OPTIONAL:
 	-l <integer> 3 - 20, Leniency: error/contiguity trade-off. Higher = More Error [5]
+	-c <flag> (clean up) Add flag if you wish to clean up non-essential processing files
 	" 1>&2; exit 1; }
 
 l=5
@@ -63,6 +64,7 @@ while getopts ":g:r:n:f:p:l:c" o; do
             ;;
 		r)
             rd=${OPTARG}
+			rd=${rd//,/ }
             ;;
 		n)
             n=${OPTARG}
@@ -72,6 +74,7 @@ while getopts ":g:r:n:f:p:l:c" o; do
             ;;
 		c)
 			c=1
+			;;
         *)
 	    echo $'\n'"Unrecognised entry: ${OPTARG}"
             usage
