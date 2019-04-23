@@ -2,6 +2,7 @@
 
 import sys
 import pandas as pd
+from collections import defaultdict
 
 QUANTILE_THRESH = 0.999
 EDGE_RATIO = 5
@@ -11,6 +12,38 @@ QUAL = 20
 AUTO_GAP = 2000
 TRIM_LIMIT = 500
 FRAG_LEN = 50000
+
+def ChooseDest(dct):
+    def lstreset(jn):
+        lst = []
+        lst.append(jn)
+        return lst
+    
+    if len(dct) > 0:
+        best = next(iter(dct.values()))
+        lst = lstreset(best)
+        
+        for ks,jn in dct.items():
+            if jn.nano_confs > best.nano_confs:
+                best = jn
+                lst = lstreset(best)
+            elif jn.nano_confs == best.nano_confs:
+                if jn.auto_confs > best.auto_confs:
+                    best = jn
+                    lst = lstreset(best)
+                elif jn.auto_confs == best.auto_confs:
+                    if jn.weight > best.weight:
+                        best = jn
+                        lst = lstreset(best)
+                    elif jn.nano_confs and jn.gap < best.gap:
+                        best = jn
+                        lst = lstreset(best)
+                    elif jn.weight == best.weight:
+                        lst.append(jn)
+                            
+        return lst
+    else:
+        return []
 
 class JoinData:
     def __init__(self, wt, auto, nano):
@@ -41,18 +74,39 @@ class Join:
         return self.weight < other.weight
 
 class MetaScaffold:
-    def __init__(self, scaffolds, joins, gaps, trims, jdat):
+    def __init__(self, scaffolds, joins, gaps, trims, jdat, entryd, exitd):
         self.Scaffolds = scaffolds
         self.JoinTypes = joins
         self.Gaps = gaps
         self.Trims = trims
         self.Jdata = jdat
+        self.Entry = entryd
+        self.Exit = exitd
         scln = sum([sc.length for sc in self.Scaffolds])
         
         self.length = scln + sum(self.Gaps) - sum(self.Trims)
         
+        i = 0
         for sc in self.Scaffolds:
-            sc.in_meta = True
+            if i == 0 or i == (len(self.Scaffolds)-1):
+                sc.is_meta_terminal = True
+            sc.SetInMeta(self)
+            i += 1
+    
+    def StripTerminalInners(self):
+        def strin(sc, ch):
+            if ch == 'R':
+                sc.QuarantineIt(L=True, R=False, B=True)
+                
+            if ch == 'L':
+                sc.QuarantineIt(L=False, R=True, B=True)
+            
+        sc1 = self.Scaffolds[0]
+        sc2 = self.Scaffolds[-1]
+        
+        strin(sc1, self.Entry)
+        strin(sc2, self.Exit)
+        
             
     def Name(self, name):
         self.Name = name
@@ -130,10 +184,14 @@ class Scaffold:
         self.in_meta = False
         self.in_loop = False
         self.seq = ""
+        self.is_meta_terminal = False
+        self.meta_ref = None
         
         self.Left = {}
         self.Right = {}
         self.Both = {}
+        
+        self.Quarantine = defaultdict(list)
         
     def ShuntBoths(self):
         if self.Both:
@@ -145,6 +203,40 @@ class Scaffold:
                 self.DegreeFilter(l=False,r=False,b=True)
                 self.Left = self.Both
                 self.Both = {}
+    
+    def QuarantineIt(self, L=True, R=True, B=True):
+        def Qdict(dct, ch):
+            for jn,vl in dct.items():
+                self.Quarantine[ch].append(vl)
+                vl.other.QuarantineOther(self.name)
+            
+            return {}
+        
+        if L:
+            self.Left = Qdict(self.Left, 'L')
+        
+        if R:
+            self.Right = Qdict(self.Right, 'R')
+        
+        if B:
+            self.Both = Qdict(self.Both, 'B')
+    
+    def DeQuarantine(self):
+        def DeQr(dct, ch):
+            if ch in self.Quarantine:
+                for jn in self.Quarantine[ch]:
+                    if not jn.other.in_meta:
+                        dct[jn.other.name] = jn
+        
+        if not self.in_meta or self.is_meta_terminal:
+            DeQr(self.Left, 'L')
+            DeQr(self.Right, 'R')
+            DeQr(self.Both, 'B')
+            
+    def SetInMeta(self, met):
+        self.QuarantineIt()            
+        self.in_meta = True
+        self.meta_ref = met
         
     def PrintIt(self, handle):
         mln = len(self.seq)
@@ -160,59 +252,79 @@ class Scaffold:
             handle.write(subs + "\n")
             
     def IsBest(self, jn, nxt):
-        def ChooseDest(dct, b1):
+        def ReflectDest(dct, b1):
             if len(dct) > 0:
                 best = b1
+                result = 2
                 for ks,jn in dct.items():
-                    if not jn.other.in_meta:
-                        if jn.nano_confs > best.nano_confs:
+                    if jn.nano_confs > best.nano_confs:
+                        best = jn
+                        result = 0
+                    elif jn.nano_confs == best.nano_confs:
+                        if jn.auto_confs > best.auto_confs:
                             best = jn
-                        elif jn.nano_confs == best.nano_confs:
-                            if jn.auto_confs > best.auto_confs:
+                            result = 0
+                        elif jn.auto_confs == best.auto_confs:
+                            if jn.weight > best.weight:
                                 best = jn
-                            elif jn.auto_confs == best.auto_confs:
-                                if jn.weight > best.weight:
-                                    best = jn
-                return best
+                                result = 0
+                            elif jn.nano_confs and jn.gap < best.gap:
+                                best = jn
+                                result = 0
+                            elif jn.weight == best.weight:
+                                result = 1
+                return [best, result]
             else:
-                return None
+                return [None, 0]
             
-        res = False
+        res = 0
         
         if nxt == 'L':
             if len(self.Left) == 1:
-                res = True
+                res = 2
             else:
-                jn2 = ChooseDest(self.Left, jn)
-                res = jn2.other.name == jn.other.name
+                jn2, res = ReflectDest(self.Left, jn)
+                
         if nxt == 'R':
             if len(self.Right) == 1:
-                res = True
+                res = 2
             else:
-                jn2 = ChooseDest(self.Right, jn)
-                res = jn2.other.name == jn.other.name
+                jn2, res = ReflectDest(self.Right, jn)
             
         return res
         
     def IsEntryPoint(self):
-        if self.Left and not self.Right:
+        def HasRBJ(dct):
+            lst = ChooseDest(dct)
+            for jn in lst:
+                next_entry, jn2 = jn.Reflect(self.name)
+                rbj_result = jn.other.IsBest(jn2, next_entry) if jn2 else 0
+                if rbj_result:
+                    return True
+            else:
+                return False
+        left_rbj = HasRBJ(self.Left)
+        right_rbj = HasRBJ(self.Right)
+        
+        if left_rbj and not right_rbj:
             return 'L'
-        if self.Right and not self.Left:
+        if right_rbj and not left_rbj:
             return 'R'
         
         return ''
         
     def RemoveTakenJoins(self):
-        def stmeta(dct):
+        def stmeta(dct, ch):
             ks = list(dct.keys())
             for k in ks:
                 if dct[k].other.in_meta:
+                    self.Quarantine[ch].append(dct[k])
                     del dct[k]
                     
         if not self.in_meta:
-            stmeta(self.Left)
-            stmeta(self.Right)
-            stmeta(self.Both)
+            stmeta(self.Left, 'L')
+            stmeta(self.Right, 'R')
+            #stmeta(self.Both, 'B')
     
     def SwitchDict(self, m1, m2, othnm):
         def SendJoin(jn, oth, m):
@@ -464,6 +576,19 @@ class Scaffold:
             
         if name in self.Both:
             del self.Both[name]
+            
+    def QuarantineOther(self, name):
+        if name in self.Right:
+            self.Quarantine['R'].append(self.Right[name])
+            del self.Right[name]
+        
+        if name in self.Left:
+            self.Quarantine['L'].append(self.Left[name])
+            del self.Left[name]
+            
+        if name in self.Both:
+            self.Quarantine['B'].append(self.Both[name])
+            del self.Both[name]
 
 class Alignment:
     def __init__(self, qst, qed, rst, red, rev):
@@ -491,6 +616,13 @@ class Graph:
         self.PreN50 = 0
         self.PostN50 = 0
         self.FragLen = flen
+        
+    def QuarantineEverything(self):
+        for sc,vl in self.Scaffolds.items():
+            vl.QuarantineIt()
+        
+        for sc,vl in self.Scaffolds.items():
+            vl.DeQuarantine()
         
     def ResetScaffs(self):
         for sc,vl in self.Scaffolds.items():
@@ -652,29 +784,40 @@ class Graph:
         
         print("Adjusting quantile filter...\n")
         
+        tblA = tbl[tbl['TYPE1'] != 'B']
+        tblA = tblA[tblA['TYPE2'] != 'B']
+        
         tblB = tbl[tbl['TYPE1'] == 'B']
         tblB = tblB[tblB['TYPE2'] == 'B']
         
+        tblX = tbl[tbl['TYPE1'] != 'B']
+        tblX = tblX[tblX['TYPE2'] == 'B']
+        
+        tblY = tbl[tbl['TYPE1'] == 'B']
+        tblY = tblY[tblY['TYPE2'] != 'B']
+        
+        tbl = tblX.append(tblY)
+        
         while QUANTILE_THRESH > 0.8 and act_ratio < EDGE_RATIO: 
             CONF_WEIGHT = tbl.WEIGHT.quantile(QUANTILE_THRESH)
-            print(str(QUANTILE_THRESH) + " quantile filter; weight threshold: " +
-                  str(CONF_WEIGHT))
+            print("%.2f quantile filter; weight threshold: %.2f"
+                  % (QUANTILE_THRESH, CONF_WEIGHT))
             tbl2 = tbl.loc[tbl.WEIGHT > CONF_WEIGHT]
             ln2 = tbl2.shape[0]
             act_ratio = ln2/sln
             QUANTILE_THRESH -= 0.005
             
         tbl2 = tbl.loc[tbl.WEIGHT > CONF_WEIGHT]
-        print("\nPost filter directed to load: " + str(tbl2.shape[0]))
+        tblA = tblA.loc[tblA.WEIGHT > CONF_WEIGHT]
+        print("\nPost filter partials to load: " + str(tbl2.shape[0]))
+        print("Chromium direct tangle to load: " + str(tblA.shape[0]))
         print("Small Frag Nano-bait to load: " + str(tblB.shape[0]) + "\n")
         
         membership = {}
         
         CONF_WEIGHT = int(CONF_WEIGHT)
         
-        for i in range(len(tbl2)):
-            row = tbl2.iloc[i]
-            
+        for ind,row in tbl2.iterrows():      
             jinc += 2
             rinc += GetInc(row.TYPE1,row.TYPE2, 'R')
             linc += GetInc(row.TYPE1,row.TYPE2, 'L')
@@ -682,43 +825,16 @@ class Graph:
             
             AddRow(row, membership)
             
-        for i in range(len(tblB)):
-            row = tblB.iloc[i]            
+        for ind,row in tblB.iterrows():         
             jinc += 2
             binc += GetInc(row.TYPE1,row.TYPE2, 'B')
             AddRow(row, membership)
-        
-        '''
-        for sc,vl in self.Scaffolds.items():
-            if sc not in membership:
-                tbl2 = tbl[tbl['CNTG1'] == sc]
-                
-                if tbl2.shape[0] > 0:
-                    tbl2 = tbl2.sort_values(by='WEIGHT', ascending=False)
-                    for i in range(min([len(tbl2),DEGREE_FILTER])):
-                        row = tbl2.iloc[i]
-                        
-                        jinc += 2
-                        rinc += GetInc(row.TYPE1,row.TYPE2, 'R')
-                        linc += GetInc(row.TYPE1,row.TYPE2, 'L')
-                        binc += GetInc(row.TYPE1,row.TYPE2, 'B')
-                        
-                        AddRow(row, membership)
-                        
-                tbl2 = tbl[tbl['CNTG2'] == sc]
-                
-                if tbl2.shape[0] > 0:
-                    tbl2 = tbl2.sort_values(by='WEIGHT', ascending=False)
-                    for i in range(min([len(tbl2),DEGREE_FILTER])):
-                        row = tbl2.iloc[i]
-                        
-                        jinc += 2
-                        rinc += GetInc(row.TYPE1,row.TYPE2, 'R')
-                        linc += GetInc(row.TYPE1,row.TYPE2, 'L')
-                        binc += GetInc(row.TYPE1,row.TYPE2, 'B')
-                        
-                        AddRow(row, membership)
-        '''
+            
+        for ind,row in tblA.iterrows():         
+            jinc += 2
+            rinc += GetInc(row.TYPE1,row.TYPE2, 'R')
+            linc += GetInc(row.TYPE1,row.TYPE2, 'L')
+            AddRow(row, membership)
             
         lnmb = len(membership)
             
@@ -977,6 +1093,15 @@ class Agent:
         self.Scaffolds = list(scdict.values())
         self.Metas = []
         
+    class PreExtend:
+        def __init__(self, prem, met, side):
+            self.side = side
+            self.pre_meta = prem
+            self.meta_scaff = met
+            
+        def __lt__(self, other):
+            return self.pre_meta.__lt__(other.pre_meta)
+        
     class PreMeta:
         def __init__(self, entry):
             self.scaffs = []
@@ -985,7 +1110,11 @@ class Agent:
             self.trims = []
             self.jdat = []
             self.entry = entry
+            self.exit = entry
             self.loop_terminal = False
+            self.meta_terminal = False
+            self.scaff_last = None
+            self.last_entry = ''
             
         def LoopCheck(self):
             for sc in self.scaffs:
@@ -994,16 +1123,45 @@ class Agent:
                 
             return True
         
-        def Shatter(self):
+        def Shatter(self, rbj_thresh):
+            def NonRBHQuarantine(dct, sc, ch, rbj):
+                ndict = {}
+                for jn,vl in dct.items():
+                    nxt, jn2 = vl.Reflect(sc.name)
+                    rbj_result = vl.other.IsBest(jn2, nxt)
+                    if rbj_result < rbj:
+                        sc.Quarantine[ch].append(vl)
+                        vl.other.QuarantineOther(sc.name)
+                    else:
+                        ndict[jn] = vl
+                        
+                return ndict
+                        
+            def CheckQr(ch, sc):
+                dif = 0
+                if ch == 'L':
+                    lns1 = len(sc.Left)
+                    sc.Left = NonRBHQuarantine(sc.Left, sc, ch, rbj_thresh)
+                    dif = lns1 - len(sc.Left)
+                if ch == 'R':
+                    lns1 = len(sc.Right)
+                    sc.Right = NonRBHQuarantine(sc.Right, sc, ch, rbj_thresh)
+                    dif = lns1 - len(sc.Right)
+                    
+                return dif
+            
+            diff = 0
             for sc in self.scaffs:
                 sc.in_loop = True
                 
             sc1 = self.scaffs[0]
+            sc2 = self.scaffs[-1]
             
-            if self.entry == 'L':
-                sc1.Left = {}
-            if self.entry == 'R':
-                sc1.Right = {}
+            diff += CheckQr(self.entry, sc1)
+            diff += CheckQr(self.exit, sc2)
+            
+            return diff
+              
             
         def AttemptClosure(self):
             for s in self.scaffs:
@@ -1011,7 +1169,8 @@ class Agent:
                     return None
             
             met = MetaScaffold(self.scaffs, self.joins,
-                               self.gaps, self.trims, self.jdat)
+                               self.gaps, self.trims, self.jdat,
+                               self.entry, self.exit)
             
             return met
             
@@ -1040,25 +1199,7 @@ class Agent:
                 
         self.Scaffolds = sc2
         
-    def Traverse(self, scaff, entry, looper=False):
-        def ChooseDest(dct):
-            if len(dct) > 0:
-                best = next(iter(dct.values()))
-                
-                for ks,jn in dct.items():
-                    if not jn.other.in_meta:
-                        if jn.nano_confs > best.nano_confs:
-                            best = jn
-                        elif jn.nano_confs == best.nano_confs:
-                            if jn.auto_confs > best.auto_confs:
-                                best = jn
-                            elif jn.auto_confs == best.auto_confs:
-                                if jn.weight > best.weight:
-                                    best = jn
-                return best
-            else:
-                return None
-                    
+    def Traverse(self, scaff, entry):
         entry_point = entry
         
         journey = {}
@@ -1071,29 +1212,54 @@ class Agent:
             pm.scaffs.append(scaff)
             
             jn = None
+            lstx = []
             if entry_point == 'L':
-                jn = ChooseDest(scaff.Right)
+                lstx = ChooseDest(scaff.Right)
             if entry_point == 'R':
-                jn = ChooseDest(scaff.Left)
+                lstx = ChooseDest(scaff.Left)
                 
-            if not jn:
+            if not lstx:
                 can_move = False
             else:
-                next_entry, jn2 = jn.Reflect(scaff.name)
-                rbj_result = jn.other.IsBest(jn2, next_entry) if jn2 else False
+                rbj_result = rbjo = 0
+                next_entry = nxto = ''
+                jn2 = jn2o = jno = None
                 
-                rbj_result = rbj_result if not looper else True
+                for jnx in lstx:
+                    jn = jnx
+                    next_entry, jn2 = jn.Reflect(scaff.name)
+                    rbj_result = jn.other.IsBest(jn2, next_entry) if jn2 else 0
+                    
+                    if rbj_result == 2:
+                        break
+                    
+                    if rbj_result == 1:
+                        jn2o = jn2
+                        jno = jn
+                        nxto = next_entry
+                        rbjo = 1
+                        
+                if not rbj_result and rbjo:
+                    jn2 = jn2o
+                    jn = jno
+                    rbj_result = rbjo
+                    next_entry = nxto
                 
                 inj = jn.other.name in journey
                 
                 if inj:
                     pm.loop_terminal = True
-                
+                elif jn.other.in_meta:
+                    pm.meta_terminal = True
+                    pm.scaff_last = jn.other
+                    pm.last_entry = next_entry
+                    
                 if not jn2 or jn.other.in_meta or not rbj_result or inj:
                     can_move = False                    
                 else:
                     scaff = jn.other
                     entry_point = next_entry
+                    pm.exit = 'L' if entry_point == 'R' else 'R'
                     pm.joins.append(jn.orientation)
                     pm.joins.append(jn2.orientation)
                     pm.gaps.append(jn.gap)
@@ -1104,14 +1270,16 @@ class Agent:
                 
         return pm
     
-    def LoopShatter(self):
+    def LoopShatter(self, rbj_thresh, limit):
         sh_cnt = 0
+        ed_cnt = 0
+        sc_cnt = 0
         pms = []
         
         for sc in self.Scaffolds:
-            if sc.Left and sc.Right:
-                pma = self.Traverse(sc, 'L', looper=False)
-                pmb = self.Traverse(sc, 'R', looper=False)
+            if sc.Left and sc.Right and not sc.in_meta:
+                pma = self.Traverse(sc, 'L')
+                pmb = self.Traverse(sc, 'R')
                 
                 if pma.loop_terminal and pmb.loop_terminal:
                     if len(pma.scaffs) > 1:
@@ -1122,10 +1290,14 @@ class Agent:
         pms = sorted(pms, reverse=True)
         for p in pms:
             if p.LoopCheck():
-                p.Shatter()
+                res = p.Shatter(rbj_thresh)
+                ed_cnt += res
+                sc_cnt += 1 if res else 0
                 sh_cnt += 1
+                if sc_cnt >= limit:
+                    break
                 
-        return sh_cnt
+        return [sh_cnt, ed_cnt, sc_cnt]
                 
         
     def RunPaths(self):
@@ -1139,6 +1311,8 @@ class Agent:
         tscs = len(self.Scaffolds)
         inmetas = 0
         
+        iteration_limit = int(tscs/2500)
+        
         while(metas_kept > 0):
             metas_built = 0
             metas_kept = 0
@@ -1149,11 +1323,14 @@ class Agent:
             for sc in self.Scaffolds:
                 sc.in_loop = False
             
-            if inc > 2:
+            if inc > 0:
                 print("Running disentangler..")
-                shat = self.LoopShatter()
-                lsht += shat
-                print("..picked open " + str(shat) + " loops\n")
+                rbj =  int(total_metas/(tscs/25))
+                shat, edg, succ = self.LoopShatter(rbj, iteration_limit)
+                lsht += succ
+                print("Ran on " + str(shat) + " tangles, rbj: " + str(rbj))
+                print("..picked open " + str(succ) + " loops")
+                print("..quarantining " + str(edg) + " joins\n")
             
             for sc in self.Scaffolds:
                 res = sc.IsEntryPoint()
@@ -1176,18 +1353,75 @@ class Agent:
                     inmetas += len(pm.scaffs)
                     met.Name("Nanochrome_scaffold_" + str(total_metas))
                     self.Metas.append(met)
-                    
+                    if metas_kept > iteration_limit:
+                        break    
             
             print("Meta-scaffolding iteration: " + str(inc))
             print("..new scaffolds created: " + str(metas_built))
             print("..of which kept: " + str(metas_kept) + "\n")
-                
+            
+            if not metas_kept:
+                metas_kept = succ
                 
         print ("Grand Total of: " + str(total_metas) + " metascaffolds built")
         print ("Unpicked " + str(lsht) + " tangles in graph")
         print ("Of " + str(tscs) + " scaffolds in genome, " 
                + str(inmetas) + " were used\n")
+        
+    def ExtendMetas(self):
+        for m in self.Metas:
+            m.StripTerminalInners()
+        
+        total_extend = 0
+        joins_made = 0
+        scaffs_included = 0
+        metas_joined = 0
+        metas_extend = 1
+        extend_built = 0
+        lsht = 0
+        inc = 0
+        
+        while(metas_extend):
+            metas_extend = 0
+            extends = []
+            inc += 1
+            
+            if inc > 1:
+                print("Running disentangler..")
+                shat, edg, succ = self.LoopShatter(inc, 50)
+                lsht += succ
+                print("Ran on " + str(shat) + " tangles")
+                print("..picked open " + str(succ) + " loops")
+                print("..quarantining " + str(edg) + " joins\n")
+                
+                for m in self.Metas:
+                    scL = m.Scaffolds[0]
+                    scR = m.Scaffolds[-1]
+                    resL = scL.isEntryPoint()
+                    resR = scR.isEntryPoint()
+                    if resL:
+                        resL = 'L' if resL == 'R' else 'R'
+                        pmL = self.Traverse(scL, resL)
                         
+                        if len(pmL.scaffs) > 1:
+                            prex = self.PreExtend(pmL, m, 'L')
+                            extends.append(prex)
+                            extend_built += 1
+                            
+                    if resR:
+                        resR = 'L' if resR == 'R' else 'R'
+                        pmR = self.Traverse(scR, resR)
+                        
+                        if len(pmR.scaffs) > 1:
+                            prex = self.PreExtend(pmR, m, 'R')
+                            extends.append(prex)
+                            extend_built += 1
+            
+            print ("Meta-scaff extention iteration: " + str(inc))
+            print ("..extensions made: " + str(extend_built))
+            print ("..of which kept: " + str(metas_extend))
+
+        print ("Unpicked " + str(lsht) + " tangles in graph")            
         
     def PrintNetwork(self, pref):
         nodes = pref + "_nodes_final.tsv"
@@ -1255,6 +1489,7 @@ def main(argv):
         print("Agent navigating graph...\n")
         the_graph.ResetScaffs()
         the_agent.RunPaths()
+        the_graph.QuarantineEverything()
         print("Fixing in optimal scaffold paths\n")
         the_agent.PrintNetwork(argv[5])
         print("Writing final assembly\n")
