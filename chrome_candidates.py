@@ -203,30 +203,28 @@ class Genome:
         print("Read Genome with " + str(glen) + " bases")
         print("Found " + str(snum) + " separate contigs\n")
                 
-    def ReadSam(self, fname):
+    def ReadPAF(self, fname):
         rinc = linc = 0
         with open(fname, "r") as sfile:
             for line in sfile:
+                line = line.rstrip('\r\n')
                 
-                if line[0] != '@':
-                    line = line.rstrip('\r\n')
+                vls = line.split('\t')
+                ql = int(vls[11])
+                linc += 1
+                
+                if ql >= QUAL:
+                    nms = vls[0].split('_')
+                    sc = vls[5]
+                    pos = int(vls[8])
+                    coda = nms[-1]
                     
-                    vls = line.split('\t')
-                    ql = int(vls[4])
-                    linc += 1
-                    
-                    if ql >= QUAL:
-                        nms = vls[0].split('_')
-                        sc = vls[2]
-                        pos = int(vls[3])
-                        coda = nms[-1]
+                    if sc in self.Scaffolds:
+                        rinc += 1
+                        if coda not in self.Barcodes:
+                            self.Barcodes[coda] = Barcode(coda)
                         
-                        if sc in self.Scaffolds:
-                            rinc += 1
-                            if coda not in self.Barcodes:
-                                self.Barcodes[coda] = Barcode(coda)
-                            
-                            self.Barcodes[coda].AddConnect(pos, self.Scaffolds[sc])
+                        self.Barcodes[coda].AddConnect(pos, self.Scaffolds[sc])
                     
         bl = len(self.Barcodes)
         
@@ -328,7 +326,7 @@ class Genome:
 def HelpMsg():
     print ("\nNanochrome - building barcode linkage candidates\n")
     print ("ARG1: <genome.fa> A Genome file")
-    print ("ARG2: <alns.sam> Mapped 10X library")
+    print ("ARG2: <alns.paf> Mapped 10X library")
     print ("ARG3: <integer> Fragment Length (x10 library)")
     print ("ARG4: <prefix> Unique prefix for outputs\n")
     print ("Output:\n")
@@ -338,8 +336,6 @@ def HelpMsg():
     print ("<prefix>_nodes.tsv: A node description file for visualisation\n")
 
 def main(argv):
-
-    # make sure there are at least three arguments
     if len(argv) >= 3:
         try:
             global EXPECTED_FRAGMENT
@@ -348,7 +344,7 @@ def main(argv):
             the_genome = Genome()
             the_genome.ReadFasta(argv[0])
             print("Reading Alignments...\n")
-            the_genome.ReadSam(argv[1])
+            the_genome.ReadPAF(argv[1])
             print("Filtering Reads & Edges...\n")
             the_genome.DistributeBarcodes()
             the_genome.StripScaffolds()

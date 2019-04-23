@@ -99,19 +99,19 @@ echo "Fragment length is: 	${f}"
 echo "Leniency is set to:   	${l}"
 
 echo $'\n'"Running minimap2 - mapping 10x reads to genome.."
-echo $'\n'"CMD: minimap2 -ax sr ${g} ${rd} > ${p}_aln.sam"
+echo $'\n'"CMD: minimap2 -x sr ${g} ${rd} > ${p}_short.paf"
 
-minimap2 -ax sr ${g} ${rd} > ${p}_aln.sam
+minimap2 -x sr ${g} ${rd} > ${p}_short.paf
 
 echo $'\n'"Running chrome_candidates.py to generate candidate physical links"
-echo $'\n'"CMD: python3 $DIR/chrome_candidates.py ${g} ${p}_aln.sam ${f} ${p}"
+echo $'\n'"CMD: python3 $DIR/chrome_candidates.py ${g} ${p}_short.paf ${f} ${p}"
 
-python3 $DIR/chrome_candidates.py ${g} ${p}_aln.sam ${p}
+python3 $DIR/chrome_candidates.py ${g} ${p}_short.paf ${f} ${p}
 
 echo $'\n'"Running minimap2 - mapping nanopore reads to candidate scaffolds"
 echo $'\n'"CMD: minimap2 -x ${p}_candidates.fa ${n} > ${p}_aln.paf"
 
-minimap2 -x ${p}_candidates.fa ${n} > ${p}_aln.paf
+minimap2 -x map-ont ${p}_candidates.fa ${n} > ${p}_aln.paf
 
 echo $'\n'"Running nano_confirms.py to put everything together!"
 echo $'\n'"CMD: python3 $DIR/nano_confirms.py ${g} ${p}_table.tsv ${p}_aln.paf ${f} ${p}"
