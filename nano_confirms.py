@@ -82,6 +82,7 @@ class MetaScaffold:
         self.Jdata = jdat
         self.Entry = entryd
         self.Exit = exitd
+        self.subsumed = False
         scln = sum([sc.length for sc in self.Scaffolds])
         
         self.length = scln + sum(self.Gaps) - sum(self.Trims)
@@ -92,6 +93,110 @@ class MetaScaffold:
                 sc.is_meta_terminal = True
             sc.SetInMeta(self)
             i += 1
+            
+    def GetSide(self, scaff):
+        
+        if scaff.name == self.Scaffolds[0].name:
+            return 'L'
+        elif scaff.name == self.Scaffolds[-1].name:
+            return 'R'
+        else:
+            return ''
+        
+    def Mergelists(self, scaffs, exit_sc, gaps, trims, jd, joins, side, rev):
+        if rev:
+            scaffs = scaffs[::-1]
+            gaps = gaps[::-1]
+            trims = trims[::-1]
+            jd = jd[::-1]
+            joins = joins[::-1]
+            
+        if side == 'L':
+            if scaffs:
+                self.Scaffolds = scaffs + self.Scaffolds
+            self.Entry = exit_sc
+            self.Gaps = gaps + self.Gaps
+            self.Trims = trims + self.Trims
+            self.Jdata = jd + self.Jdata
+            self.JoinTypes = joins + self.JoinTypes
+        
+        if side == 'R':
+            if scaffs:
+                self.Scaffolds = self.Scaffolds + scaffs
+            self.Exit = exit_sc
+            self.Gaps = self.Gaps + gaps
+            self.Trims = self.Trims + trims
+            self.Jdata = self.Jdata + jd
+            self.JoinTypes = self.JoinTypes + joins
+        
+    def Subsume(self, term_sc, meta, jn_side, my_side):
+        meta.subsumed = True
+        #First connect the two edge scaffolds
+        
+        sc1 = self.Scaffolds[0] if my_side == 'L' else self.Scaffolds[-1]
+        sc2 = meta.Scaffolds[0] if jn_side == 'L' else meta.Scaffolds[-1]
+        
+        ch1, jn1 = sc1.HasFixedMatch(sc2.name)
+        ch2, jn2 = sc2.HasFixedMatch(sc1.name)
+        
+        if ch1 != 'N' and ch2 != 'N':
+            gaps = [jn1.gap]
+            join_ty = [jn1.orientation, jn2.orientation]
+            trims = [jn1.trim_amnt, jn2.trim_amnt]
+            join_dat = [JoinData(jn1.weight, jn1.auto_confs, jn1.nano_confs)]
+            exdm = 'P'
+            
+            rev_mini = True if my_side == 'L' else False
+            self.Mergelists([], exdm, gaps, trims,
+                            join_dat, join_ty, my_side, rev_mini)
+            
+            #Then merge two metascaffs here (mostly their att-lists)
+            rev = True if jn_side == my_side else False
+            ex_sc = meta.Exit if jn_side == 'L' else meta.Entry
+            self.Mergelists(meta.Scaffolds, ex_sc, meta.Gaps, meta.Trims,
+                            meta.Jdata, meta.JoinTypes, my_side, rev)
+            return True
+#        else:
+#            print ("Not finding matches despite traversal!\n")
+        
+        return False
+            
+    def Append(self, prex):
+        subbed = 0
+        for sc in prex.pre_meta.scaffs:
+            sc.in_extend = True
+            sc.in_meta = True
+        
+        side = prex.side
+        pm = prex.pre_meta
+        
+        if len(pm.scaffs) > 1:
+            rev = True if side == 'L' else False
+            self.Mergelists(pm.scaffs[1:], pm.exit, pm.gaps, pm.trims,
+                            pm.jdat, pm.joins, side, rev)
+            
+        if prex.pre_meta.meta_terminal:
+            edge_to_join = prex.pre_meta.scaff_last
+            met_to_join = edge_to_join.meta_ref
+            join_side = met_to_join.GetSide(edge_to_join)
+            if not met_to_join.subsumed:
+                if self.Subsume(edge_to_join, met_to_join, join_side, side):
+                    subbed = 1
+            
+        scln = sum([sc.length for sc in self.Scaffolds])
+        
+        self.length = scln + sum(self.Gaps) - sum(self.Trims)
+        
+        for s in self.Scaffolds:
+            s.is_meta_terminal = False
+            
+        self.Scaffolds[0].is_meta_terminal = True
+        self.Scaffolds[-1].is_meta_terminal = True
+        
+        self.StripTerminalInners()
+        
+        return subbed
+        
     
     def StripTerminalInners(self):
         def strin(sc, ch):
@@ -183,6 +288,7 @@ class Scaffold:
         self.length = length
         self.in_meta = False
         self.in_loop = False
+        self.in_extend = False
         self.seq = ""
         self.is_meta_terminal = False
         self.meta_ref = None
@@ -225,7 +331,7 @@ class Scaffold:
         def DeQr(dct, ch):
             if ch in self.Quarantine:
                 for jn in self.Quarantine[ch]:
-                    if not jn.other.in_meta:
+                    if not jn.other.in_meta or jn.other.is_meta_terminal:
                         dct[jn.other.name] = jn
         
         if not self.in_meta or self.is_meta_terminal:
@@ -292,6 +398,7 @@ class Scaffold:
                 jn2, res = ReflectDest(self.Right, jn)
             
         return res
+    
         
     def IsEntryPoint(self):
         def HasRBJ(dct):
@@ -312,6 +419,7 @@ class Scaffold:
             return 'R'
         
         return ''
+    
         
     def RemoveTakenJoins(self):
         def stmeta(dct, ch):
@@ -342,6 +450,7 @@ class Scaffold:
                 SendJoin(self.Left[othnm], othnm, m2)
             elif m1 == 'R':
                 SendJoin(self.Right[othnm], othnm, m2)
+                
     
     def AnchorNano(self, othnm, old_mode, new_mode, trim, gap, rev):
         def UpdateSwitch(jn, trim, gap, rev):
@@ -367,6 +476,7 @@ class Scaffold:
             return ['R', self.Right[scfnm]]
         else:
             return ['N', None]
+        
              
     def RunAutoConf(self, fraglen):
         def CheckEntry(tail1, vl, ch1, ch2):
@@ -548,19 +658,16 @@ class Scaffold:
         
         if l:
             ret, hv = FilterDict(self.Left)
-            
             self.Left = ret
             hval += hv
         
         if r:
             ret, hv = FilterDict(self.Right)
-            
             self.Right = ret
             hval += hv
         
         if b:
             ret, hv = FilterDict(self.Both)
-            
             self.Both = ret
             hval += hv
             
@@ -1098,7 +1205,19 @@ class Agent:
             self.side = side
             self.pre_meta = prem
             self.meta_scaff = met
-            
+        
+        def CheckExtend(self):
+            if len(self.pre_meta.scaffs) > 1:
+                for sc in self.pre_meta.scaffs:
+                    if sc.in_extend:
+                        return False
+                else:
+                    return True
+            elif self.pre_meta.meta_terminal:
+                if not self.pre_meta.scaff_last.meta_ref.subsumed:
+                    return True
+            return False
+        
         def __lt__(self, other):
             return self.pre_meta.__lt__(other.pre_meta)
         
@@ -1199,6 +1318,14 @@ class Agent:
                 
         self.Scaffolds = sc2
         
+    def StripMetas(self):
+        mt2 = []
+        for m in self.Metas:
+            if not m.subsumed:
+                mt2.append(m)
+                
+        self.Metas = mt2
+        
     def Traverse(self, scaff, entry):
         entry_point = entry
         
@@ -1254,7 +1381,7 @@ class Agent:
                     pm.scaff_last = jn.other
                     pm.last_entry = next_entry
                     
-                if not jn2 or jn.other.in_meta or not rbj_result or inj:
+                if not jn2 or jn.other.in_meta or not rbj_result or inj or jn.other.in_extend:
                     can_move = False                    
                 else:
                     scaff = jn.other
@@ -1311,7 +1438,7 @@ class Agent:
         tscs = len(self.Scaffolds)
         inmetas = 0
         
-        iteration_limit = int(tscs/2500)
+        iteration_limit = int(tscs/250)
         
         while(metas_kept > 0):
             metas_built = 0
@@ -1373,7 +1500,6 @@ class Agent:
             m.StripTerminalInners()
         
         total_extend = 0
-        joins_made = 0
         scaffs_included = 0
         metas_joined = 0
         metas_extend = 1
@@ -1383,8 +1509,14 @@ class Agent:
         
         while(metas_extend):
             metas_extend = 0
+            extend_built = 0
             extends = []
             inc += 1
+            
+            self.StripMetas()
+            
+            for sc in self.Scaffolds:
+                sc.in_loop = False
             
             if inc > 1:
                 print("Running disentangler..")
@@ -1394,11 +1526,13 @@ class Agent:
                 print("..picked open " + str(succ) + " loops")
                 print("..quarantining " + str(edg) + " joins\n")
                 
-                for m in self.Metas:
-                    scL = m.Scaffolds[0]
-                    scR = m.Scaffolds[-1]
-                    resL = scL.isEntryPoint()
-                    resR = scR.isEntryPoint()
+            for m in self.Metas:
+                scL = m.Scaffolds[0]
+                scR = m.Scaffolds[-1]
+                if scL and scR:
+                    resL = scL.IsEntryPoint()
+                    resR = scR.IsEntryPoint()
+                    
                     if resL:
                         resL = 'L' if resL == 'R' else 'R'
                         pmL = self.Traverse(scL, resL)
@@ -1416,12 +1550,32 @@ class Agent:
                             prex = self.PreExtend(pmR, m, 'R')
                             extends.append(prex)
                             extend_built += 1
+                        
+            if len(extends) > 1:
+                extends = sorted(extends, reverse=True)
+            
+            for ex in extends:
+                if ex.CheckExtend():
+                    metas_joined += ex.meta_scaff.Append(ex)
+                    metas_extend += 1
+                    total_extend += 1
+                    scaffs_included += (len(ex.pre_meta.scaffs) - 1)
             
             print ("Meta-scaff extention iteration: " + str(inc))
             print ("..extensions made: " + str(extend_built))
-            print ("..of which kept: " + str(metas_extend))
-
-        print ("Unpicked " + str(lsht) + " tangles in graph")            
+            print ("..of which kept: " + str(metas_extend) + "\n")
+            
+            if not metas_extend and succ:
+                metas_extend = 1
+            
+    
+        fln = len(self.Metas)
+        print ("Grand Total of: " + str(fln) + " metascaffolds remain")
+        print ("To which " + str(total_extend) + " extensions were made")
+        print ("Unpicked " + str(lsht) + " tangles in graph")   
+        print ("Newly included contigs: " + str(scaffs_included))
+        print ("Meta-scaffolds merged: " + str(metas_joined) + "\n")
+        
         
     def PrintNetwork(self, pref):
         nodes = pref + "_nodes_final.tsv"
@@ -1489,18 +1643,20 @@ def main(argv):
         print("Agent navigating graph...\n")
         the_graph.ResetScaffs()
         the_agent.RunPaths()
+        print("Agent re-navigating scaffold terminals...\n")
         the_graph.QuarantineEverything()
+        the_agent.ExtendMetas()
         print("Fixing in optimal scaffold paths\n")
         the_agent.PrintNetwork(argv[5])
-        print("Writing final assembly\n")
-        the_graph.StoreGenome(argv[0])
-        the_agent.PrintMetas(argv[5], the_graph.Scaffolds)
-        
         n50, cnt, sz = the_graph.FinalStats(the_agent.Metas)
         
         print("The new genome size: " + str(sz))
         print("..with contig count: " + str(cnt))
         print("..and an n50 of: %.2f\n" % n50)
+        
+        print("Writing final assembly\n")
+        the_graph.StoreGenome(argv[0])
+        the_agent.PrintMetas(argv[5], the_graph.Scaffolds)
             
 #        except:
 #            print("Error: ",sys.exc_info()[0]," <- this happened.")
