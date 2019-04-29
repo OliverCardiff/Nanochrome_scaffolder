@@ -48,6 +48,7 @@ Usage: ./Run_Nanochrome.sh
         OPTIONAL:
         -l <integer> 3 - 20, Leniency: error/contiguity trade-off. Higher = More Error [5]
         -c <flag> (clean up) Add flag if you wish to clean up non-essential processing files
+        -t <integer> (1+) Number of threads to use with minimap2 [24]
 ```
 
 chrome_candidates.py:
@@ -55,7 +56,7 @@ chrome_candidates.py:
 Nanochrome - building barcode linkage candidates
 
 ARG1: <genome.fa> A Genome file
-ARG2: <alns.sam> Mapped 10X library
+ARG2: <alns.paf> Mapped 10X library
 ARG3: <integer> Fragment Length (x10 library)
 ARG4: <prefix> Unique prefix for outputs
 
@@ -65,8 +66,6 @@ Output:
 <prefix>_table.tsv: Potential connection table
 <prefix>_network.tsv: A network file for visualisation
 <prefix>_nodes.tsv: A node description file for visualisation
-
-You need to specify the three positional arguments
 ```
 
 nano_confirms.py:
