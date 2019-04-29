@@ -34,19 +34,28 @@ usage() { echo "
 	OPTIONAL:
 	-l <integer> 3 - 20, Leniency: error/contiguity trade-off. Higher = More Error [5]
 	-c <flag> (clean up) Add flag if you wish to clean up non-essential processing files
+	-t <integer> (1+) Number of threads to use with minimap2 [24]
 	" 1>&2; exit 1; }
 
 l=5
 c=0
+t=24
 
-while getopts ":g:r:n:f:p:l:c" o; do
+while getopts ":g:r:n:f:p:l:t:c" o; do
     case "${o}" in
         f)
             f=${OPTARG}
             if [[ -n ${f//[0-9]/} ]]; then
 			echo $'\n'"-f fragment length must be an integer (probably 20000-70000)"
 			usage
-	    fi 
+	    fi
+			;;
+		t)
+            t=${OPTARG}
+            if [[ -n ${f//[0-9]/} ]]; then
+			echo $'\n'"-t thread count must be an integer [1+]"
+			usage
+	    fi
             ;;
 		l)
             l=${OPTARG}
@@ -97,11 +106,32 @@ echo "Nanopores are: 		${n}"
 echo "Output prefix is: 	${p}"
 echo "Fragment length is: 	${f}"
 echo "Leniency is set to:   	${l}"
+echo "Number of threads:	${t}"
 
-echo $'\n'"Running minimap2 - mapping 10x reads to genome.."
-echo $'\n'"CMD: minimap2 -x sr ${g} ${rd} > ${p}_short.paf"
+if [ -f ${p}_interleaved.fastq ]; then
+	echo "File: ${p}_interleaved.fastq already exists, skipping barcode name correction"
+else
+	echo "File: ${p}_interleaved.fastq not detected, fixing barcode names..."
+	
+	comp="cat"
 
-minimap2 -x sr ${g} ${rd} > ${p}_short.paf
+	if [[ $rd =~ \.gz$ ]]; then
+		comp="zcat"
+	fi
+
+	$comp $rd | perl -ne 'chomp;$ct++;$ct=1 if($ct>4);if($ct==1){if(/(\@\S+)\sBX\:Z\:(\S{16})/){$flag=1;$head=$1."_".$2;print "$head\n";}else{$flag=0;}}else{print "$_\n" if($flag);}' > ${p}_interleaved.fastq
+fi
+
+
+if [ -f ${p}_short.paf ]; then
+	echo "File: ${p}_short.paf already exists! Skipping chromium read mapping..."
+else
+
+	echo $'\n'"Running minimap2 - mapping 10x reads to genome.."
+	echo $'\n'"CMD: minimap2 -x sr -t ${t} ${g} ${rd} > ${p}_short.paf"
+
+	minimap2 -x sr -t ${t} ${g} ${p}_interleaved.fastq > ${p}_short.paf
+fi
 
 echo $'\n'"Running chrome_candidates.py to generate candidate physical links"
 echo $'\n'"CMD: python3 $DIR/chrome_candidates.py ${g} ${p}_short.paf ${f} ${p}"
@@ -109,9 +139,9 @@ echo $'\n'"CMD: python3 $DIR/chrome_candidates.py ${g} ${p}_short.paf ${f} ${p}"
 python3 $DIR/chrome_candidates.py ${g} ${p}_short.paf ${f} ${p}
 
 echo $'\n'"Running minimap2 - mapping nanopore reads to candidate scaffolds"
-echo $'\n'"CMD: minimap2 -x ${p}_candidates.fa ${n} > ${p}_aln.paf"
+echo $'\n'"CMD: minimap2 -x map-ont -t ${t} ${p}_candidates.fa ${n} > ${p}_aln.paf"
 
-minimap2 -x map-ont ${p}_candidates.fa ${n} > ${p}_aln.paf
+minimap2 -x map-ont -t ${t} ${p}_candidates.fa ${n} > ${p}_aln.paf
 
 echo $'\n'"Running nano_confirms.py to put everything together!"
 echo $'\n'"CMD: python3 $DIR/nano_confirms.py ${g} ${p}_table.tsv ${p}_aln.paf ${f} ${p}"
@@ -119,7 +149,7 @@ echo $'\n'"CMD: python3 $DIR/nano_confirms.py ${g} ${p}_table.tsv ${p}_aln.paf $
 python3 $DIR/nano_confirms.py ${g} ${p}_table.tsv ${p}_aln.paf ${f} ${l} ${p}
 
 if [ "$c" -eq "1" ]; then
-	rm -f ${p}_aln.sam ${p}_aln.paf
+	rm -f ${p}_short.paf ${p}_aln.paf
 	rm -f ${p}_table.tsv
 	rm -f ${p}_candidates.fa
 fi
