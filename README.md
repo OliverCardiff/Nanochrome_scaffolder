@@ -18,6 +18,9 @@ Typical Usage:
 
 ### Dependencies:
 
+0. [Long Ranger BASIC](https://support.10xgenomics.com/genome-exome/software/pipelines/latest/advanced/other-pipelines)
+
+While NOT required to run the software, the chromium reads will need to be processed by the above software provided by 10x Genomics before they can be used with Nanochrome. This program extracts the reads from the raw sequencer ouput and associates them with their respective barcodes.
 
 1. [Python3](https://realpython.com/installing-python/#ubuntu)
 
