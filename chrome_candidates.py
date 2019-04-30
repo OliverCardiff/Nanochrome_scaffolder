@@ -336,7 +336,7 @@ def HelpMsg():
     print ("<prefix>_nodes.tsv: A node description file for visualisation\n")
 
 def main(argv):
-    if len(argv) >= 3:
+    if len(argv) >= 4:
         try:
             global EXPECTED_FRAGMENT
             EXPECTED_FRAGMENT = int(argv[2])
@@ -359,7 +359,7 @@ def main(argv):
         
     else:
         HelpMsg()
-        print("You need to specify the three positional arguments\n")
+        print("You need to specify the four positional arguments\n")
         #sys.exit(2)
  
  

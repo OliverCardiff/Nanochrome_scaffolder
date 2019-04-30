@@ -347,6 +347,7 @@ class Scaffold:
     def PrintIt(self, handle):
         mln = len(self.seq)
         inc = 0
+        handle.write(">" + self.name + "\n")
         while(inc < (mln - 100)):
             subs = self.seq[inc:(inc + 100)]
             handle.write(subs + "\n")
@@ -1593,13 +1594,18 @@ class Agent:
                    
     def PrintMetas(self, pref, sc_resid):
         genm = pref + "_final_genome.fa"
+        pm = ps = 0
         with open(genm, "w") as genomefile:
             for m in self.Metas:
+                pm += 1
                 m.PrintIt(genomefile)
             
             for ks,sc in sc_resid.items():
                 if not sc.in_meta:
+                    ps += 1
                     sc.PrintIt(genomefile)
+        print("Printed " + str(pm) + " metascaffs")
+        print("Printed " + str(ps) + " scaffolds")
         print("Wrote " + genm + " successfully!\n")
        
 def HelpMsg():
@@ -1620,47 +1626,47 @@ def main(argv):
 
     # make sure there are at least three arguments
     if len(argv) >= 5:
-#        try:
-        global FRAG_LEN
-        global EDGE_RATIO
-        EDGE_RATIO = int(argv[4])
-        FRAG_LEN = int(argv[3])
-        the_graph = Graph(FRAG_LEN)
-        print("Scanning the genome...\n")
-        the_graph.ScanGenome(argv[0])
-        print("Reading the edge graph...\n")
-        the_graph.ReadTable(argv[1])
-        print("Pre-filtering edge graph...\n")
-        the_graph.PreFilterEdges()
-        the_graph.PreConfirmEdges()
-        print("Loading long-read .paf...\n")
-        the_graph.ReadPAF(argv[2])
-        print("Filtering network...\n")
-        the_agent = Agent(the_graph.Scaffolds)
-        the_agent.ResolveNewlyDirectionalJoins()
-        the_graph.PreConfirmEdges()
-        the_graph.StripUnconfirmed()
-        print("Agent navigating graph...\n")
-        the_graph.ResetScaffs()
-        the_agent.RunPaths()
-        print("Agent re-navigating scaffold terminals...\n")
-        the_graph.QuarantineEverything()
-        the_agent.ExtendMetas()
-        print("Fixing in optimal scaffold paths\n")
-        the_agent.PrintNetwork(argv[5])
-        n50, cnt, sz = the_graph.FinalStats(the_agent.Metas)
-        
-        print("The new genome size: " + str(sz))
-        print("..with contig count: " + str(cnt))
-        print("..and an n50 of: %.2f\n" % n50)
-        
-        print("Writing final assembly\n")
-        the_graph.StoreGenome(argv[0])
-        the_agent.PrintMetas(argv[5], the_graph.Scaffolds)
+        try:
+            global FRAG_LEN
+            global EDGE_RATIO
+            EDGE_RATIO = int(argv[4])
+            FRAG_LEN = int(argv[3])
+            the_graph = Graph(FRAG_LEN)
+            print("Scanning the genome...\n")
+            the_graph.ScanGenome(argv[0])
+            print("Reading the edge graph...\n")
+            the_graph.ReadTable(argv[1])
+            print("Pre-filtering edge graph...\n")
+            the_graph.PreFilterEdges()
+            the_graph.PreConfirmEdges()
+            print("Loading long-read .paf...\n")
+            the_graph.ReadPAF(argv[2])
+            print("Filtering network...\n")
+            the_agent = Agent(the_graph.Scaffolds)
+            the_agent.ResolveNewlyDirectionalJoins()
+            the_graph.PreConfirmEdges()
+            the_graph.StripUnconfirmed()
+            print("Agent navigating graph...\n")
+            the_graph.ResetScaffs()
+            the_agent.RunPaths()
+            print("Agent re-navigating scaffold terminals...\n")
+            the_graph.QuarantineEverything()
+            the_agent.ExtendMetas()
+            print("Fixing in optimal scaffold paths\n")
+            the_agent.PrintNetwork(argv[5])
+            n50, cnt, sz = the_graph.FinalStats(the_agent.Metas)
             
-#        except:
-#            print("Error: ",sys.exc_info()[0]," <- this happened.")
-#            HelpMsg()
+            print("The new genome size: " + str(sz))
+            print("..with contig count: " + str(cnt))
+            print("..and an n50 of: %.2f\n" % n50)
+            
+            print("Writing final assembly\n")
+            the_graph.StoreGenome(argv[0])
+            the_agent.PrintMetas(argv[5], the_graph.Scaffolds)
+            
+        except:
+            print("Error: ",sys.exc_info()[0]," <- this happened.")
+            HelpMsg()
     else:
         HelpMsg()
         print("You need to specify the four positional arguments\n")
