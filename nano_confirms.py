@@ -235,6 +235,10 @@ class MetaScaffold:
             
     
     def PrintIt(self, handle):
+        old_chars = "ACGT"
+        replace_chars = "TGCA"
+        revcomp = str.maketrans(old_chars,replace_chars)
+        
         seqs = []
         main_seq = ""
         for sc in self.Scaffolds:
@@ -262,7 +266,7 @@ class MetaScaffold:
                     flip = True
                 
                 if flip:
-                    seqs[i] = seqs[i][::-1] 
+                    seqs[i] = seqs[i].translate(revcomp)[::-1]
                 
                 main_seq += seqs[i][tr1:tr2]
                 
