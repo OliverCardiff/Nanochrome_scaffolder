@@ -842,6 +842,7 @@ class Graph:
                 
                 if line[0] == ">":
                     nm = line[1:]
+                    nm = nm.split(' ')[0]
                     if len(oldID) > 0 and len(seq) > 15:
                         self.Scaffolds[oldID] = Scaffold(oldID, len(seq))
                         glen += len(seq)
@@ -1188,6 +1189,7 @@ class Graph:
                 
                 if line[0] == ">":
                     nm = line[1:]
+                    nm = nm.split(' ')[0]
                     if len(oldID) > 0 and oldID in self.Scaffolds:
                         self.Scaffolds[oldID].seq = seq
                         seq = ""

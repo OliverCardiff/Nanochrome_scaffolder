@@ -163,6 +163,7 @@ class Genome:
             
             if line[0] == ">":
                 nm = line[1:]
+                nm = nm.split(' ')[0]
                 if nm in self.Candidates:
                     swit = 1
                 else:
@@ -186,6 +187,7 @@ class Genome:
                 
                 if line[0] == ">":
                     nm = line[1:]
+                    nm = nm.split(' ')[0]
                     if len(oldID) > 0 and len(seq) > 150:
                         self.Scaffolds[oldID] = Scaffold(oldID, len(seq))
                         glen += len(seq)
