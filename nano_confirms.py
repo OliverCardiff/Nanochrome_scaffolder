@@ -1435,6 +1435,18 @@ class Agent:
                 
         
     def RunPaths(self):
+        def RunDisentangler(rbj, iteration_limit):
+            for sc in self.Scaffolds:
+                sc.in_loop = False
+                
+            print("Running disentangler..")
+            
+            shat, edg, succ = self.LoopShatter(rbj, iteration_limit)
+            print("Ran on " + str(shat) + " tangles, rbj: " + str(rbj))
+            print("..picked open " + str(succ) + " loops")
+            print("..quarantining " + str(edg) + " joins\n")
+            return [succ, shat]
+            
         metas_built = 1
         metas_kept = 1
         total_metas = 0
@@ -1444,27 +1456,24 @@ class Agent:
         
         tscs = len(self.Scaffolds)
         inmetas = 0
+        succ = 0
+        shat = 0
         
         iteration_limit = int(tscs/250)
         
         while(metas_kept > 0):
             metas_built = 0
             metas_kept = 0
+            succ = 0
+            shat = 0
             prems = []
             inc += 1
             self.StripGraph()
             
-            for sc in self.Scaffolds:
-                sc.in_loop = False
-            
             if inc > 0:
-                print("Running disentangler..")
                 rbj =  int(total_metas/(tscs/25))
-                shat, edg, succ = self.LoopShatter(rbj, iteration_limit)
+                succ, shat = RunDisentangler(rbj, iteration_limit)
                 lsht += succ
-                print("Ran on " + str(shat) + " tangles, rbj: " + str(rbj))
-                print("..picked open " + str(succ) + " loops")
-                print("..quarantining " + str(edg) + " joins\n")
             
             for sc in self.Scaffolds:
                 res = sc.IsEntryPoint()
@@ -1494,7 +1503,14 @@ class Agent:
             print("..new scaffolds created: " + str(metas_built))
             print("..of which kept: " + str(metas_kept) + "\n")
             
-            if not metas_kept:
+            if not metas_kept and succ:
+                metas_kept = succ
+            elif not metas_kept and not succ and shat and rbj < 2:
+                if inc > 0:
+                    succ, shat = RunDisentangler(4, iteration_limit)
+                    lsht += succ
+                    
+            if not metas_kept and succ:
                 metas_kept = succ
                 
         print ("Grand Total of: " + str(total_metas) + " metascaffolds built")
