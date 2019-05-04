@@ -349,10 +349,10 @@ class Scaffold:
         self.in_meta = True
         self.meta_ref = met
         
-    def PrintIt(self, handle):
+    def PrintIt(self, handle, newid):
         mln = len(self.seq)
         inc = 0
-        handle.write(">" + self.name + "\n")
+        handle.write(">original_seq_" + str(newid) + "\n")
         while(inc < (mln - 100)):
             subs = self.seq[inc:(inc + 100)]
             handle.write(subs + "\n")
@@ -1632,7 +1632,7 @@ class Agent:
             for ks,sc in sc_resid.items():
                 if not sc.in_meta:
                     ps += 1
-                    sc.PrintIt(genomefile)
+                    sc.PrintIt(genomefile, ps)
         print("Printed " + str(pm) + " metascaffs")
         print("Printed " + str(ps) + " scaffolds")
         print("Wrote " + genm + " successfully!\n")
