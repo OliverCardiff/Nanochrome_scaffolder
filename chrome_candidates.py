@@ -130,9 +130,9 @@ class Scaffold:
                 else:
                     ch = 'L'
             else:
-                if cnm < EXPECTED_FRAGMENT:
+                if (self.length - cnm) >= EXPECTED_FRAGMENT:
                     ch = 'L'
-                else:
+                elif cnm > EXPECTED_FRAGMENT:
                     ch = 'R'
         
         return [ch, cnm]

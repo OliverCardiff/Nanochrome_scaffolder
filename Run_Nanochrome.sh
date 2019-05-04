@@ -33,15 +33,17 @@ usage() { echo "
 	
 	OPTIONAL:
 	-l <integer> 3 - 20, Leniency: error/contiguity trade-off. Higher = More Error [5]
-	-c <flag> (clean up) Add flag if you wish to clean up non-essential processing files
 	-t <integer> (1+) Number of threads to use with minimap2 [24]
+	-c <flag> (clean up) Add flag if you wish to clean up non-essential processing files
+	-s <flag> Strict mode - increases graph-based contig join stringency (if running more than once use this!)
 	" 1>&2; exit 1; }
 
 l=5
 c=0
 t=24
+strict=0
 
-while getopts ":g:r:n:f:p:l:t:c" o; do
+while getopts ":g:r:n:f:p:l:t:cs" o; do
     case "${o}" in
         f)
             f=${OPTARG}
@@ -83,6 +85,9 @@ while getopts ":g:r:n:f:p:l:t:c" o; do
             ;;
 		c)
 			c=1
+			;;
+		c)
+			strict=1
 			;;
         *)
 	    echo $'\n'"Unrecognised entry: ${OPTARG}"
@@ -144,9 +149,9 @@ echo $'\n'"CMD: minimap2 -x map-ont -t ${t} ${p}_candidates.fa ${n} > ${p}_aln.p
 minimap2 -x map-ont -t ${t} ${p}_candidates.fa ${n} > ${p}_aln.paf
 
 echo $'\n'"Running nano_confirms.py to put everything together!"
-echo $'\n'"CMD: python3 $DIR/nano_confirms.py ${g} ${p}_table.tsv ${p}_aln.paf ${f} ${p}"
+echo $'\n'"CMD: python3 $DIR/nano_confirms.py ${g} ${p}_table.tsv ${p}_aln.paf ${f} ${l} ${strict} ${p}"
 
-python3 $DIR/nano_confirms.py ${g} ${p}_table.tsv ${p}_aln.paf ${f} ${l} ${p}
+python3 $DIR/nano_confirms.py ${g} ${p}_table.tsv ${p}_aln.paf ${f} ${l} ${strict} ${p}
 
 if [ "$c" -eq "1" ]; then
 	rm -f ${p}_short.paf ${p}_aln.paf

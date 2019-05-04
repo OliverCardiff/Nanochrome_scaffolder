@@ -12,6 +12,7 @@ QUAL = 20
 AUTO_GAP = 2000
 TRIM_LIMIT = 500
 FRAG_LEN = 50000
+STRICT = 0
 
 def ChooseDest(dct):
     def lstreset(jn):
@@ -911,7 +912,7 @@ class Graph:
         
         tbl = tblX.append(tblY)
         
-        while QUANTILE_THRESH > 0.8 and act_ratio < EDGE_RATIO: 
+        while QUANTILE_THRESH > 0.7 and act_ratio < EDGE_RATIO and CONF_WEIGHT >= 5: 
             CONF_WEIGHT = tbl.WEIGHT.quantile(QUANTILE_THRESH)
             print("%.2f quantile filter; weight threshold: %.2f"
                   % (QUANTILE_THRESH, CONF_WEIGHT))
@@ -1373,7 +1374,13 @@ class Agent:
                         nxto = next_entry
                         rbjo = 1
                         
-                if not rbj_result and rbjo:
+                    if STRICT and rbj_result != 2:
+                        rbj_result = 0
+                        break
+                        
+                strictpass = True if not STRICT else (len(lstx) < 2) 
+                
+                if not rbj_result and rbjo and strictpass:
                     jn2 = jn2o
                     jn = jno
                     rbj_result = rbjo
@@ -1638,7 +1645,8 @@ def HelpMsg():
     print ("ARG3: <alns.paf> Mapped Longread library")
     print ("ARG4: <integer> Fragment Length (x10 library)")
     print ("ARG5: <integer> Tangle leniency [5-15]")
-    print ("ARG6: <prefix> Unique prefix for outputs\n")
+    print ("ARG6: <0/1> Strict Mode (if re-run) [0]")
+    print ("ARG7: <prefix> Unique prefix for outputs\n")
     print ("Output:\n")
     print ("<prefix>_nc_scaffolded.fa: Final Scaffolded Genome")
     print ("<prefix>_network_final.tsv: A network file for visualisation")
@@ -1646,11 +1654,13 @@ def HelpMsg():
 
 def main(argv):
 
-    # make sure there are at least three arguments
-    if len(argv) >= 5:
+    # make sure there are seven arguments
+    if len(argv) == 7:
         try:
             global FRAG_LEN
             global EDGE_RATIO
+            global STRICT
+            STRICT = int(argv[5])
             EDGE_RATIO = int(argv[4])
             FRAG_LEN = int(argv[3])
             the_graph = Graph(FRAG_LEN)
@@ -1675,7 +1685,7 @@ def main(argv):
             the_graph.QuarantineEverything()
             the_agent.ExtendMetas()
             print("Fixing in optimal scaffold paths\n")
-            the_agent.PrintNetwork(argv[5])
+            the_agent.PrintNetwork(argv[6])
             n50, cnt, sz = the_graph.FinalStats(the_agent.Metas)
             
             print("The new genome size: " + str(sz))
@@ -1684,7 +1694,7 @@ def main(argv):
             
             print("Writing final assembly\n")
             the_graph.StoreGenome(argv[0])
-            the_agent.PrintMetas(argv[5], the_graph.Scaffolds)
+            the_agent.PrintMetas(argv[6], the_graph.Scaffolds)
             
         except:
             print("Error: ",sys.exc_info()[0]," <- this happened.")
