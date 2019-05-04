@@ -16,6 +16,8 @@ Typical Usage:
 ./Run_Nanochrome.sh -g genome.fa -r chromium_reads.fq -n nanopore_reads.fq -f 29000 -p my_prefix -l 6
 ```
 
+Note: The nature of 10x libraries allows them to work better when the genome assembly is already more highly contiguous than the library fragment size. For this reason, running nanochrome multiple times, with a gap closer such as [LR_Gapcloser](https://github.com/CAFS-bioinformatics/LR_Gapcloser) after each run, should provide substantial iterative improvements to the assembly. HOWEVER, Nanochrome is also written with an error/contiguity trade-off in mind rather than a precision->accept, ambiguity->reject model. Adding the '-s' flag for strict mode will make the reciprocal best join testing more stringent, and hopefully prevent over-aggressive scaffolding errors on the 2nd or 3rd iteration. An alternative to strict mode might be running a script to re-fragment the assembly by the unclosed gaps.
+
 ### Dependencies:
 
 0. [Long Ranger BASIC](https://support.10xgenomics.com/genome-exome/software/pipelines/latest/advanced/other-pipelines)
@@ -47,11 +49,12 @@ Usage: ./Run_Nanochrome.sh
         -n <file> Nanopore reads, can be fasta, or fastq
         -f <integer> 10x Library mean fragment length
         -p <string> Prefix for output/processing files
-
-        OPTIONAL:
-        -l <integer> 3 - 20, Leniency: error/contiguity trade-off. Higher = More Error [5]
-        -c <flag> (clean up) Add flag if you wish to clean up non-essential processing files
-        -t <integer> (1+) Number of threads to use with minimap2 [24]
+        
+	OPTIONAL:
+	-l <integer> 3 - 20, Leniency: error/contiguity trade-off. Higher = More Error [5]
+	-t <integer> (1+) Number of threads to use with minimap2 [24]
+	-c <flag> (clean up) Add flag if you wish to clean up non-essential processing files
+	-s <flag> Strict mode - increases graph-based contig join stringency (if running more than once use this!)
 ```
 
 chrome_candidates.py:
@@ -82,7 +85,8 @@ ARG2: <nc_table.tsv> output from chrome_candidates.py
 ARG3: <alns.paf> Mapped Longread library
 ARG4: <integer> Fragment Length (x10 library)
 ARG5: <integer> Tangle leniency [5-15]
-ARG6: <prefix> Unique prefix for outputs
+ARG6: <0/1> Strict Mode (if re-run) [0]
+ARG7: <prefix> Unique prefix for outputs
 
 Output:
 
