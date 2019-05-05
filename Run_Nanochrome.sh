@@ -86,7 +86,7 @@ while getopts ":g:r:n:f:p:l:t:cs" o; do
 		c)
 			c=1
 			;;
-		c)
+		s)
 			strict=1
 			;;
         *)
