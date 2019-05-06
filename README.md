@@ -24,7 +24,7 @@ Both scripts produce a pair of files (node/network) which can be loaded into [Cy
 
 A basic cytoscape style, 'NC_graph' is also provided to facilitate a default mapping of network visual properties, although this may need tweaking based onthe particulars of your assembly.
 
-### Dependencies:
+## Dependencies:
 
 0. [Long Ranger BASIC](https://support.10xgenomics.com/genome-exome/software/pipelines/latest/advanced/other-pipelines)
 
