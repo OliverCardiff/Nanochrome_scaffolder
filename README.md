@@ -16,7 +16,13 @@ Typical Usage:
 ./Run_Nanochrome.sh -g genome.fa -r chromium_reads.fq -n nanopore_reads.fq -f 29000 -p my_prefix -l 6
 ```
 
-Note: The nature of 10x libraries allows them to work better when the genome assembly is already more highly contiguous than the library fragment size. For this reason, running nanochrome multiple times, with a gap closer such as [LR_Gapcloser](https://github.com/CAFS-bioinformatics/LR_Gapcloser) after each run, should provide substantial iterative improvements to the assembly. HOWEVER, Nanochrome is also written with an error/contiguity trade-off in mind rather than a precision->accept, ambiguity->reject model. Adding the '-s' flag for strict mode will make the reciprocal best join testing more stringent, and hopefully prevent over-aggressive scaffolding errors on the 2nd or 3rd iteration. An alternative to strict mode might be running a script to re-fragment the assembly by the unclosed gaps.
+#### Iteration: 
+The nature of 10x libraries allows them to work better when the genome assembly is already more highly contiguous than the library fragment size. For this reason, running nanochrome multiple times, with a gap closer such as [LR_Gapcloser](https://github.com/CAFS-bioinformatics/LR_Gapcloser) after each run, should provide substantial iterative improvements to the assembly. HOWEVER, Nanochrome is also written with an error/contiguity trade-off in mind rather than a precision->accept, ambiguity->reject model. Adding the '-s' flag for strict mode will make the reciprocal best join testing more stringent, and hopefully prevent over-aggressive scaffolding errors on the 2nd or 3rd iteration. An alternative to strict mode might be running a script to re-fragment the assembly by the unclosed gaps.
+
+#### Visualisation:
+Both scripts produce a pair of files (node/network) which can be loaded into [Cytoscape](https://cytoscape.org/) to visualise the scaffolding connections as a graph. The first network produced might be incredibly large if you have lots of contigs in your assembly. There are three types of edges in the graph (TYPE) 1,2,3. TYPE 1: Joins made solely with 10x Library information, TYPE 2: Joins suggested by 10x, confirmed with nanopore reads, TYPE 3: Not an actual join, the centre of a scaffold connecting two edges. All nodes in the graph represent edges of scaffolds/contigs, rather than the scaffold itself.
+
+A basic cytoscape style, 'NC_graph' is also provided to facilitate a default mapping of network visual properties, although this may need tweaking based onthe particulars of your assembly.
 
 ### Dependencies:
 
